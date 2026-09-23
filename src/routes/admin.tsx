@@ -11,6 +11,7 @@ import { CustomersList } from "@/components/admin/customers-list";
 import { CustomerMessages } from "@/components/admin/customer-messages";
 import { OnlineStoreCustomizer } from "@/components/admin/online-store-customizer";
 import { DiscountsList } from "@/components/admin/discounts-list";
+import { AdminGate } from "@/components/admin/admin-gate";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -33,7 +34,8 @@ function AdminPage() {
   const [activeSubTab, setActiveSubTab] = useState<StatSubTab>(search.tab || "lista-de-clientes");
 
   return (
-    <AdminLayout activeSubTab={activeSubTab} onSelectSubTab={setActiveSubTab}>
+    <AdminGate>
+      <AdminLayout activeSubTab={activeSubTab} onSelectSubTab={setActiveSubTab}>
       {activeSubTab === "lista-de-clientes" && <CustomersList />}
       {activeSubTab === "mensagens-clientes" && <CustomerMessages />}
       {activeSubTab === "lista-de-produtos" && <ProductsList />}
@@ -48,6 +50,7 @@ function AdminPage() {
         activeSubTab === "visitas" ||
         activeSubTab === "tempo-real" ||
         activeSubTab === "relatorio-de-cupons") && <StatisticsOthers tab={activeSubTab} />}
-    </AdminLayout>
+      </AdminLayout>
+    </AdminGate>
   );
 }

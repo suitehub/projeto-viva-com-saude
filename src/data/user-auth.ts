@@ -10,7 +10,8 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
 } from "firebase/auth";
-import { auth, googleProvider } from "@/lib/firebase";
+import { auth, googleProvider, db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 export interface UserProfile {
   id: string;
@@ -272,6 +273,33 @@ export async function logoutUser(): Promise<void> {
 }
 
 /**
+ * E-mail raiz com poder total no Firestore (ver `firestore.rules` -> isBootstrappedAdmin).
+ * Quem loga com este e-mail é admin automaticamente, sem precisar de doc em `admins`.
+ */
+export const BOOTSTRAPPED_ADMIN_EMAIL = "rickyjorgecastro@gmail.com";
+
+export function isBootstrappedAdminEmail(email?: string | null): boolean {
+  return !!email && email.trim().toLowerCase() === BOOTSTRAPPED_ADMIN_EMAIL;
+}
+
+/**
+ * Verifica no Firestore se o usuário logado é administrador:
+ * e-mail raiz OU documento existente em `admins/{uid}`.
+ * A trava real está nas regras do servidor — isto é só para o UI.
+ */
+export async function checkIsAdmin(): Promise<boolean> {
+  const fbUser = auth.currentUser;
+  if (!fbUser) return false;
+  if (isBootstrappedAdminEmail(fbUser.email)) return true;
+  try {
+    const snap = await getDoc(doc(db, "admins", fbUser.uid));
+    return snap.exists();
+  } catch {
+    return false;
+  }
+}
+
+/**
  * React hook to listen for active user changes and Firebase Auth
  */
 export function useCurrentUser() {
@@ -314,5 +342,38 @@ export function useCurrentUser() {
     loginWithGoogle,
     resetPassword,
     logout: logoutUser,
+  };
+}
+
+/**
+ * React hook que diz se o usuário logado pode administrar a loja.
+ */
+export function useIsAdmin() {
+  const { user, isLoggedIn, isLoadingAuth } = useCurrentUser();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (isLoadingAuth) return;
+    if (!isLoggedIn || !user) {
+      setIsAdmin(false);
+      return;
+    }
+    // Resposta imediata para o e-mail raiz
+    if (isBootstrappedAdminEmail(user.email)) {
+      setIsAdmin(true);
+      return;
+    }
+    let cancelled = false;
+    checkIsAdmin().then((value) => {
+      if (!cancelled) setIsAdmin(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isLoggedIn, isLoadingAuth]);
+
+  return {
+    isAdmin: isAdmin === true,
+    isLoadingAdmin: isLoadingAuth || isAdmin === null,
   };
 }
