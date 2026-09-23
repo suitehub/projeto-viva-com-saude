@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { subscribeCustomerMessages } from "@/data/admin-customers-data";
 import {
   BarChart3,
   ChevronDown,
@@ -64,6 +65,15 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
   const [customersExpanded, setCustomersExpanded] = useState(
     activeSubTab === "lista-de-clientes" || activeSubTab === "mensagens-clientes",
   );
+  // Contador real de mensagens não respondidas (selo na aba Mensagens)
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  useEffect(() => {
+    const unsubscribe = subscribeCustomerMessages((loaded) => {
+      setUnreadMessages(loaded.filter((m) => m.status === "Não respondida").length);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const statMenuItems: { id: StatSubTab; label: string }[] = [
     { id: "visao-geral", label: "Visão geral" },
@@ -389,7 +399,20 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
                             : "text-gray-700 hover:bg-gray-100"
                         }`}
                       >
-                        <span>Mensagens</span>
+                        <span className="flex items-center gap-2">
+                          Mensagens
+                          {unreadMessages > 0 && (
+                            <span
+                              className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                                activeSubTab === "mensagens-clientes"
+                                  ? "bg-white text-[#0066d6]"
+                                  : "bg-[#0066d6] text-white"
+                              }`}
+                            >
+                              {unreadMessages}
+                            </span>
+                          )}
+                        </span>
                       </button>
                     </div>
                   )}
