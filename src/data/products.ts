@@ -23,6 +23,8 @@ export type Product = {
   imageUrl?: string;
   images?: string[];
   stock?: string | number;
+  featured?: boolean;
+  featuredAt?: string;
   weightKg?: number;
   heightCm?: number;
   widthCm?: number;

@@ -13,7 +13,7 @@ import {
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";
-import { AdminProductItem, PRESET_STORE_CATEGORIES } from "@/data/admin-products-data";
+import { AdminProductItem, PRESET_STORE_CATEGORIES, MAX_FEATURED_PRODUCTS, ensureFeaturedSlot } from "@/data/admin-products-data";
 import { slugify } from "@/data/all-store-products";
 import { uploadProductImages } from "@/lib/product-images";
 import productsImage from "@/assets/viva-products.jpg";
@@ -273,6 +273,26 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
         setPendingFiles({});
       }
 
+      const wasFeatured = product.featured === true;
+      const wantsFeatured = formData.featured === true;
+      let featuredAt = formData.featuredAt;
+      if (wantsFeatured && !wasFeatured) {
+        featuredAt = new Date().toISOString();
+        try {
+          const removed = await ensureFeaturedSlot(productId);
+          if (removed.length > 0) {
+            toast.info(
+              `Destaques cheios: "${removed.map((r) => r.name).join('", "')}" saiu para dar lugar.`,
+            );
+          }
+        } catch (slotErr) {
+          console.error("Aviso ao aplicar limite de destaques:", slotErr);
+        }
+      }
+      if (!wantsFeatured) {
+        featuredAt = undefined;
+      }
+
       const updatedProduct: AdminProductItem = {
         ...formData,
         id: productId,
@@ -285,6 +305,8 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
         imageUrl: finalImages[0] || "",
         displayInStore: formData.displayInStore !== false,
         visibility: formData.visibility || "Visível",
+        featured: wantsFeatured,
+        featuredAt,
       };
 
       setFormData(updatedProduct);
@@ -1165,6 +1187,24 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
               "Acessível apenas por link direto, oculto da busca da loja."}
             {formData.visibility === "Oculto" && "Totalmente invisível na loja e nos buscadores."}
           </p>
+
+          <label className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+            <input
+              type="checkbox"
+              checked={formData.featured === true}
+              onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0066d6] focus:ring-[#0066d6]"
+            />
+            <span>
+              <span className="block text-xs font-bold text-gray-900">
+                Exibir nos Produtos em destaque
+              </span>
+              <span className="block text-[11px] text-gray-500">
+                Limite de {MAX_FEATURED_PRODUCTS} na página inicial — se estiver cheio, o destaque
+                mais antigo sai automaticamente.
+              </span>
+            </span>
+          </label>
         </section>
 
         {/* 12. Frete */}

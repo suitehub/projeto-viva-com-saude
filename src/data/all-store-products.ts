@@ -125,6 +125,8 @@ export function convertAdminProductToStoreProduct(item: AdminProductItem, index:
       getBgPositionForIndex((item.imagePositionIndex ?? index) + 3),
     ],
     stock: item.stock,
+    featured: item.featured === true,
+    featuredAt: item.featuredAt,
     weightKg: item.weightKg,
     heightCm: item.heightCm,
     widthCm: item.widthCm,

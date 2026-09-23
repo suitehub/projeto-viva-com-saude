@@ -144,8 +144,14 @@ function Index() {
   }, [category, query, storeProducts]);
 
   const featuredProducts = useMemo(() => {
-    return filteredProducts;
-  }, [filteredProducts]);
+    const isFiltering = query.trim() !== "" || category !== "Todas";
+    if (isFiltering) return filteredProducts;
+    // Sem filtro: só os marcados como destaque (máx. 5). Se ninguém marcou,
+    // mostra os 5 primeiros para a vitrine não ficar vazia.
+    const marked = storeProducts.filter((product) => product.featured === true);
+    if (marked.length > 0) return marked.slice(0, 5);
+    return filteredProducts.slice(0, 5);
+  }, [filteredProducts, category, query, storeProducts]);
 
   const cartCount = Object.values(cart).reduce((sum, quantity) => sum + quantity, 0);
   const subtotal = storeProducts.reduce(

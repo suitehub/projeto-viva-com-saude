@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDocs,
   setDoc,
   deleteDoc,
   onSnapshot,
@@ -43,6 +44,8 @@ export interface AdminProductItem {
   ageGroup: string;
   cost: number;
   visibility: "Visível" | "Não listado" | "Oculto";
+  featured?: boolean;
+  featuredAt?: string;
   imagePositionIndex: number;
   imageUrl?: string;
   images?: string[];
@@ -142,6 +145,51 @@ function assertFirestorePayloadSize(payload: Record<string, unknown>): void {
         "Selecione fotos menores — o upload vai para o Cloudinary ao salvar.",
     );
   }
+}
+
+export const MAX_FEATURED_PRODUCTS = 5;
+
+/**
+ * Garante o limite de destaques: ao marcar um produto novo como destaque com
+ * a cota cheia, desmarca automaticamente os mais antigos (por featuredAt).
+ * Retorna os produtos que saíram dos destaques.
+ */
+export async function ensureFeaturedSlot(currentId: string): Promise<AdminProductItem[]> {
+  const snap = await getDocs(collection(db, "products"));
+  const others: AdminProductItem[] = [];
+  snap.forEach((docSnap) => {
+    const data = docSnap.data() as AdminProductItem;
+    if (docSnap.id !== currentId && data.featured) {
+      others.push({ ...data, id: docSnap.id });
+    }
+  });
+  others.sort((a, b) => (a.featuredAt || a.createdAt || "").localeCompare(b.featuredAt || b.createdAt || ""));
+
+  const removed: AdminProductItem[] = [];
+  while (others.length >= MAX_FEATURED_PRODUCTS) {
+    const oldest = others.shift();
+    if (!oldest) break;
+    await setDoc(
+      doc(db, "products", oldest.id),
+      { featured: false, updatedAt: new Date().toISOString() },
+      { merge: true },
+    );
+    removed.push(oldest);
+  }
+
+  if (removed.length > 0) {
+    const removedIds = new Set(removed.map((r) => r.id));
+    cacheAdminProducts(
+      getCachedAdminProducts().map((p) =>
+        removedIds.has(p.id) ? { ...p, featured: false } : p,
+      ),
+    );
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("viva_admin_products_updated"));
+    }
+  }
+
+  return removed;
 }
 
 /**
