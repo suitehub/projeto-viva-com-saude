@@ -1,0 +1,1143 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import {
+  User,
+  Mail,
+  Phone,
+  Lock,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  AlertCircle,
+  LogIn,
+  UserPlus,
+  ShieldCheck,
+  ChevronRight,
+  LogOut,
+  Edit3,
+  Calendar,
+  ShoppingBag,
+  Heart,
+  ArrowRight,
+  KeyRound,
+} from "lucide-react";
+
+import { SiteFooter, SiteHeader, TopBar, WhatsAppFab } from "@/components/site-chrome";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { formatPhoneNumber } from "@/components/auth/edit-profile-modal";
+import { FavoritesSheet } from "@/components/products/favorites-sheet";
+import { useFavorites } from "@/data/favorites";
+import {
+  useCurrentUser,
+  loginUser,
+  registerUser,
+  updateUserProfile,
+  logoutUser,
+  loginWithGoogle,
+  resetPassword,
+} from "@/data/user-auth";
+import { toast } from "sonner";
+
+type AuthTab = "entrar" | "registrar" | "perfil";
+
+export const Route = createFileRoute("/conta")({
+  ssr: false,
+  validateSearch: (search: Record<string, unknown>): { tab?: string } => {
+    return {
+      tab: (search.tab as string) || undefined,
+    };
+  },
+  head: () => ({
+    meta: [
+      { title: "Minha Conta | Projeto Viva com Saúde" },
+      {
+        name: "description",
+        content:
+          "Entre ou crie sua conta no Projeto Viva com Saúde para acompanhar pedidos, histórico e dados cadastrais.",
+      },
+      { property: "og:title", content: "Minha Conta | Projeto Viva com Saúde" },
+    ],
+  }),
+  component: AccountPage,
+});
+
+function AccountPage() {
+  const search = Route.useSearch();
+  const { user, isLoggedIn } = useCurrentUser();
+  const { favoriteCount } = useFavorites();
+  const [favoritesSheetOpen, setFavoritesSheetOpen] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<AuthTab>(() => {
+    if (search.tab === "registrar") return "registrar";
+    if (search.tab === "perfil" || isLoggedIn) return "perfil";
+    return "entrar";
+  });
+
+  // Sync with search or login status
+  useEffect(() => {
+    if (search.tab === "registrar") {
+      setActiveTab("registrar");
+    } else if (search.tab === "entrar") {
+      setActiveTab("entrar");
+    } else if (isLoggedIn) {
+      setActiveTab("perfil");
+    }
+  }, [search.tab, isLoggedIn]);
+
+  // Login form state
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Register form state
+  const [regFullName, setRegFullName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPhone, setRegPhone] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regConfirmPassword, setRegConfirmPassword] = useState("");
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [regError, setRegError] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    try {
+      const res = await loginWithGoogle();
+      if (res.success && res.user) {
+        toast.success(`Bem-vindo(a), ${res.user.fullName.split(" ")[0]}!`);
+        setActiveTab("perfil");
+      } else if (res.error) {
+        toast.error(res.error);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao entrar com Google";
+      toast.error(msg);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  // Edit Profile mode within profile
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editFullName, setEditFullName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editNewPassword, setEditNewPassword] = useState("");
+  const [editConfirmPassword, setEditConfirmPassword] = useState("");
+  const [editError, setEditError] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // When opening edit mode, populate data
+  useEffect(() => {
+    if (user) {
+      setEditFullName(user.fullName || "");
+      setEditEmail(user.email || "");
+      setEditPhone(user.phone || "");
+      setEditNewPassword("");
+      setEditConfirmPassword("");
+      setEditError("");
+    }
+  }, [user, isEditingProfile]);
+
+  // Forgot password state
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [isSendingForgot, setIsSendingForgot] = useState(false);
+  const [forgotSuccessMsg, setForgotSuccessMsg] = useState("");
+  const [forgotErrorMsg, setForgotErrorMsg] = useState("");
+
+  const handleSendForgotEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotErrorMsg("");
+    setForgotSuccessMsg("");
+
+    if (!forgotEmail.trim() || !forgotEmail.includes("@")) {
+      setForgotErrorMsg("Informe um e-mail válido para receber o link.");
+      return;
+    }
+
+    setIsSendingForgot(true);
+    try {
+      const res = await resetPassword(forgotEmail);
+      if (!res.success) {
+        setForgotErrorMsg(res.error || "Não foi possível enviar o link de redefinição.");
+        return;
+      }
+      setForgotSuccessMsg(
+        "Enviamos um link de redefinição para o seu e-mail. Verifique sua caixa de entrada e a pasta de spam.",
+      );
+    } finally {
+      setIsSendingForgot(false);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError("");
+
+    if (!loginEmail.trim() || !loginEmail.includes("@")) {
+      setLoginError("Informe um endereço de e-mail válido.");
+      return;
+    }
+    if (!loginPassword) {
+      setLoginError("Informe sua senha de acesso.");
+      return;
+    }
+
+    setIsLoggingIn(true);
+    try {
+      const result = await loginUser(loginEmail, loginPassword);
+      if (!result.success) {
+        setLoginError(result.error || "Erro ao entrar.");
+        return;
+      }
+
+      toast.success(`Bem-vindo(a) de volta, ${result.user?.fullName.split(" ")[0]}!`);
+      setActiveTab("perfil");
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegError("");
+
+    if (!regFullName.trim()) {
+      setRegError("Informe seu nome completo.");
+      return;
+    }
+    if (!regEmail.trim() || !regEmail.includes("@")) {
+      setRegError("Informe um e-mail válido.");
+      return;
+    }
+    if (!regPhone.trim() || regPhone.replace(/\D/g, "").length < 10) {
+      setRegError("Informe um telefone com DDD válido.");
+      return;
+    }
+    if (!regPassword || regPassword.length < 6) {
+      setRegError("A senha deve conter no mínimo 6 caracteres.");
+      return;
+    }
+    if (regPassword !== regConfirmPassword) {
+      setRegError("A confirmação de senha não confere com a senha digitada.");
+      return;
+    }
+
+    setIsRegistering(true);
+    try {
+      const result = await registerUser({
+        fullName: regFullName,
+        email: regEmail,
+        phone: regPhone,
+        password: regPassword,
+      });
+
+      if (!result.success) {
+        setRegError(result.error || "Erro ao criar conta.");
+        return;
+      }
+
+      toast.success("Conta criada com sucesso! Bem-vindo(a) ao Projeto Viva com Saúde.");
+      setActiveTab("perfil");
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setEditError("");
+
+    if (!editFullName.trim()) {
+      setEditError("Informe seu nome completo.");
+      return;
+    }
+    if (!editEmail.trim() || !editEmail.includes("@")) {
+      setEditError("Informe um e-mail válido.");
+      return;
+    }
+    if (!editPhone.trim() || editPhone.replace(/\D/g, "").length < 10) {
+      setEditError("Informe um telefone válido com DDD.");
+      return;
+    }
+
+    if (editNewPassword) {
+      if (editNewPassword.length < 6) {
+        setEditError("A nova senha deve ter no mínimo 6 dígitos.");
+        return;
+      }
+      if (editNewPassword !== editConfirmPassword) {
+        setEditError("As senhas não coincidem.");
+        return;
+      }
+    }
+
+    setIsSavingEdit(true);
+    try {
+      const updates: Record<string, string> = {
+        fullName: editFullName.trim(),
+        email: editEmail.trim().toLowerCase(),
+        phone: editPhone.trim(),
+      };
+      if (editNewPassword) {
+        updates.password = editNewPassword;
+      }
+
+      const res = await updateUserProfile(user.id, updates);
+      if (!res.success) {
+        setEditError(res.error || "Erro ao salvar.");
+        return;
+      }
+
+      toast.success("Dados cadastrais atualizados com sucesso!");
+      setIsEditingProfile(false);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleLogout = () => {
+    logoutUser();
+    toast.info("Você saiu da sua conta.");
+    setActiveTab("entrar");
+  };
+
+  const formatDate = (isoString?: string) => {
+    if (!isoString) return "Recente";
+    try {
+      const date = new Date(isoString);
+      return new Intl.DateTimeFormat("pt-BR", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      }).format(date);
+    } catch {
+      return "Recente";
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen flex-col bg-[#fafafc] text-foreground">
+      <TopBar />
+      <SiteHeader cartCount={0} />
+
+      <main className="flex-1">
+        {/* Breadcrumbs */}
+        <div className="border-b border-border/40 bg-white">
+          <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-3 text-xs text-muted-foreground sm:px-6">
+            <Link to="/" className="hover:text-primary transition-colors">
+              Início
+            </Link>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60" />
+            <span className="font-medium text-foreground">Minha Conta</span>
+          </div>
+        </div>
+
+        <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12">
+          {isLoggedIn && user && activeTab === "perfil" ? (
+            /* Logged-In User Profile Dashboard */
+            <div className="space-y-6">
+              {/* Welcome banner */}
+              <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-r from-primary/10 via-primary/5 to-white p-6 shadow-xs sm:p-8">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="grid h-16 w-16 place-items-center rounded-2xl bg-primary text-2xl font-bold text-primary-foreground shadow-md">
+                      {user.fullName.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+                          <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                          Conta Ativa
+                        </span>
+                      </div>
+                      <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
+                        Olá, {user.fullName}!
+                      </h1>
+                      <p className="text-xs text-gray-500">
+                        Gerencie suas informações cadastrais e dados de login.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Button
+                      onClick={() => setIsEditingProfile(!isEditingProfile)}
+                      variant={isEditingProfile ? "secondary" : "default"}
+                      className="flex-1 sm:flex-none text-xs font-semibold gap-2"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                      {isEditingProfile ? "Fechar Edição" : "Editar Dados"}
+                    </Button>
+                    <Button
+                      onClick={handleLogout}
+                      variant="outline"
+                      className="text-xs font-semibold text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 gap-1.5"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sair
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Edit Mode Form or Details View */}
+              {isEditingProfile ? (
+                <div className="rounded-2xl border border-border bg-white p-6 shadow-xs sm:p-8">
+                  <div className="border-b border-gray-100 pb-4 mb-6">
+                    <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                      <Edit3 className="h-5 w-5 text-primary" />
+                      Alterar Meus Dados Cadastrais
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Edite seus dados pessoais abaixo. Campos marcados com * são obrigatórios.
+                    </p>
+                  </div>
+
+                  {editError && (
+                    <div className="mb-5 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                      <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+                      <span>{editError}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSaveEdit} className="space-y-4 max-w-xl">
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="page-edit-name"
+                        className="text-xs font-semibold text-gray-700"
+                      >
+                        Nome Completo *
+                      </Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Input
+                          id="page-edit-name"
+                          value={editFullName}
+                          onChange={(e) => setEditFullName(e.target.value)}
+                          className="pl-9 h-11 text-sm"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="page-edit-email"
+                          className="text-xs font-semibold text-gray-700"
+                        >
+                          E-mail *
+                        </Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <Input
+                            id="page-edit-email"
+                            type="email"
+                            value={editEmail}
+                            onChange={(e) => setEditEmail(e.target.value)}
+                            className="pl-9 h-11 text-sm"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="page-edit-phone"
+                          className="text-xs font-semibold text-gray-700"
+                        >
+                          Telefone / WhatsApp *
+                        </Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <Input
+                            id="page-edit-phone"
+                            type="tel"
+                            value={editPhone}
+                            onChange={(e) => setEditPhone(formatPhoneNumber(e.target.value))}
+                            className="pl-9 h-11 text-sm"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4 space-y-3">
+                      <h4 className="text-xs font-bold text-gray-700">
+                        Alterar senha de acesso (opcional)
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label htmlFor="page-edit-new-pass" className="text-[11px] text-gray-600">
+                            Nova Senha
+                          </Label>
+                          <Input
+                            id="page-edit-new-pass"
+                            type="password"
+                            value={editNewPassword}
+                            onChange={(e) => setEditNewPassword(e.target.value)}
+                            placeholder="Mínimo 6 dígitos"
+                            className="h-10 text-xs bg-white"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label
+                            htmlFor="page-edit-conf-pass"
+                            className="text-[11px] text-gray-600"
+                          >
+                            Confirmar Nova Senha
+                          </Label>
+                          <Input
+                            id="page-edit-conf-pass"
+                            type="password"
+                            value={editConfirmPassword}
+                            onChange={(e) => setEditConfirmPassword(e.target.value)}
+                            placeholder="Repita a nova senha"
+                            className="h-10 text-xs bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-2">
+                      <Button
+                        type="submit"
+                        disabled={isSavingEdit}
+                        className="h-11 px-6 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Salvar Alterações
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsEditingProfile(false)}
+                        className="h-11 text-xs"
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+              ) : (
+                /* Information Cards */
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                  <div className="rounded-2xl border border-border bg-white p-6 shadow-xs md:col-span-2 space-y-5">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                        Dados Cadastrais
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingProfile(true)}
+                        className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                        Editar
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="rounded-xl bg-gray-50/80 p-3.5 border border-gray-100">
+                        <span className="text-[11px] font-medium text-gray-500 block mb-1">
+                          Nome Completo
+                        </span>
+                        <span className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                          <User className="h-4 w-4 text-primary" />
+                          {user.fullName}
+                        </span>
+                      </div>
+
+                      <div className="rounded-xl bg-gray-50/80 p-3.5 border border-gray-100">
+                        <span className="text-[11px] font-medium text-gray-500 block mb-1">
+                          E-mail de Acesso
+                        </span>
+                        <span className="text-sm font-bold text-gray-900 flex items-center gap-2 truncate">
+                          <Mail className="h-4 w-4 text-primary shrink-0" />
+                          <span className="truncate">{user.email}</span>
+                        </span>
+                      </div>
+
+                      <div className="rounded-xl bg-gray-50/80 p-3.5 border border-gray-100">
+                        <span className="text-[11px] font-medium text-gray-500 block mb-1">
+                          Telefone / WhatsApp
+                        </span>
+                        <span className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-primary" />
+                          {user.phone || "Não informado"}
+                        </span>
+                      </div>
+
+                      <div className="rounded-xl bg-gray-50/80 p-3.5 border border-gray-100">
+                        <span className="text-[11px] font-medium text-gray-500 block mb-1">
+                          Cliente desde
+                        </span>
+                        <span className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-primary" />
+                          {formatDate(user.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 flex items-start gap-3">
+                      <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                      <div className="text-xs text-emerald-900">
+                        <p className="font-semibold">Seus dados estão 100% seguros</p>
+                        <p className="text-emerald-700/80 mt-0.5">
+                          Suas informações são confidenciais e utilizadas exclusivamente para envio
+                          de pedidos e suporte de compras.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick actions sidebar */}
+                  <div className="rounded-2xl border border-border bg-white p-6 shadow-xs space-y-4">
+                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-3">
+                      Ações Rápidas
+                    </h3>
+
+                    <div className="space-y-2">
+                      <Link
+                        to="/produtos"
+                        className="flex items-center justify-between rounded-xl border border-gray-200 p-3 text-xs font-semibold text-gray-700 hover:border-primary hover:text-primary transition-all group"
+                      >
+                        <span className="flex items-center gap-2">
+                          <ShoppingBag className="h-4 w-4 text-gray-400 group-hover:text-primary" />
+                          Comprar Produtos
+                        </span>
+                        <ArrowRight className="h-3.5 w-3.5 text-gray-400 group-hover:translate-x-1 transition-transform" />
+                      </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => setFavoritesSheetOpen(true)}
+                        className="flex w-full items-center justify-between rounded-xl border border-gray-200 p-3 text-xs font-semibold text-gray-700 hover:border-red-400 hover:text-red-600 transition-all group text-left"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Heart className="h-4 w-4 text-red-500 group-hover:scale-110 transition-transform" />
+                          Meus Produtos Favoritos ({favoriteCount})
+                        </span>
+                        <ArrowRight className="h-3.5 w-3.5 text-gray-400 group-hover:translate-x-1 transition-transform" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingProfile(true)}
+                        className="flex w-full items-center justify-between rounded-xl border border-gray-200 p-3 text-xs font-semibold text-gray-700 hover:border-primary hover:text-primary transition-all group text-left"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Edit3 className="h-4 w-4 text-gray-400 group-hover:text-primary" />
+                          Editar Dados Pessoais
+                        </span>
+                        <ArrowRight className="h-3.5 w-3.5 text-gray-400 group-hover:translate-x-1 transition-transform" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="flex w-full items-center justify-between rounded-xl border border-red-100 p-3 text-xs font-semibold text-red-600 hover:bg-red-50 transition-all group text-left"
+                      >
+                        <span className="flex items-center gap-2">
+                          <LogOut className="h-4 w-4 text-red-500" />
+                          Sair da Conta
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Auth Box (Tabs: Entrar / Registrar) */
+            <div className="mx-auto max-w-lg">
+              <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+                {/* Header Switch Tabs */}
+                <div className="grid grid-cols-2 border-b border-border bg-gray-50/70 p-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("entrar");
+                      setLoginError("");
+                    }}
+                    className={`flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold transition-all ${
+                      activeTab === "entrar"
+                        ? "bg-white text-gray-900 shadow-xs"
+                        : "text-gray-500 hover:text-gray-900"
+                    }`}
+                  >
+                    <LogIn className="h-4 w-4 text-primary" />
+                    Entrar na Conta
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("registrar");
+                      setRegError("");
+                    }}
+                    className={`flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold transition-all ${
+                      activeTab === "registrar"
+                        ? "bg-white text-gray-900 shadow-xs"
+                        : "text-gray-500 hover:text-gray-900"
+                    }`}
+                  >
+                    <UserPlus className="h-4 w-4 text-primary" />
+                    Criar Conta / Registrar
+                  </button>
+                </div>
+
+                <div className="p-6 sm:p-8">
+                  {/* TAB: ENTRAR */}
+                  {activeTab === "entrar" && (
+                    <form id="login-form" onSubmit={handleLogin} className="space-y-4">
+                      <div className="text-center pb-2">
+                        <h2 className="text-xl font-bold text-gray-900">Acesse sua conta</h2>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Digite seus dados de login para continuar
+                        </p>
+                      </div>
+
+                      {loginError && (
+                        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                          <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+                          <span>{loginError}</span>
+                        </div>
+                      )}
+
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="login-email"
+                          className="text-xs font-semibold text-gray-700"
+                        >
+                          E-mail
+                        </Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <Input
+                            id="login-email"
+                            type="email"
+                            value={loginEmail}
+                            onChange={(e) => setLoginEmail(e.target.value)}
+                            placeholder="seuemail@exemplo.com"
+                            className="pl-9 h-11 text-sm"
+                            required
+                            autoComplete="email"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <Label
+                            htmlFor="login-password"
+                            className="text-xs font-semibold text-gray-700"
+                          >
+                            Senha
+                          </Label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setForgotEmail(loginEmail.trim());
+                              setForgotErrorMsg("");
+                              setForgotSuccessMsg("");
+                              setIsForgotModalOpen(true);
+                            }}
+                            className="text-[11px] font-medium text-primary hover:underline"
+                          >
+                            Esqueci a senha
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <Input
+                            id="login-password"
+                            type={showLoginPassword ? "text" : "password"}
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                            placeholder="Sua senha"
+                            className="pl-9 pr-10 h-11 text-sm"
+                            required
+                            autoComplete="current-password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowLoginPassword(!showLoginPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                            tabIndex={-1}
+                          >
+                            {showLoginPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="submit"
+                        disabled={isLoggingIn}
+                        className="w-full h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs mt-2"
+                      >
+                        <LogIn className="mr-2 h-4 w-4" />
+                        {isLoggingIn ? "Entrando..." : "Entrar na Conta"}
+                      </Button>
+
+                      <div className="relative my-3">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-gray-200" />
+                        </div>
+                        <div className="relative flex justify-center text-xs">
+                          <span className="bg-white px-2 text-gray-500">ou entre com</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isGoogleLoading}
+                        onClick={handleGoogleSignIn}
+                        className="w-full h-11 text-xs font-semibold border-gray-300 hover:bg-gray-50 gap-2.5"
+                      >
+                        <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
+                          <path
+                            fill="#4285F4"
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                          />
+                        </svg>
+                        {isGoogleLoading ? "Conectando ao Firebase..." : "Entrar com Google"}
+                      </Button>
+
+                      <div className="text-center pt-2">
+                        <p className="text-xs text-gray-500">
+                          Ainda não possui uma conta?{" "}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab("registrar");
+                              setRegError("");
+                            }}
+                            className="font-bold text-primary hover:underline"
+                          >
+                            Cadastre-se agora
+                          </button>
+                        </p>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* TAB: REGISTRAR */}
+                  {activeTab === "registrar" && (
+                    <form id="register-form" onSubmit={handleRegister} className="space-y-4">
+                      <div className="text-center pb-2">
+                        <h2 className="text-xl font-bold text-gray-900">Crie sua conta</h2>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Preencha as informações abaixo para se registrar
+                        </p>
+                      </div>
+
+                      {regError && (
+                        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                          <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+                          <span>{regError}</span>
+                        </div>
+                      )}
+
+                      {/* 1. Nome Completo */}
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="reg-fullname"
+                          className="text-xs font-semibold text-gray-700"
+                        >
+                          Nome Completo *
+                        </Label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <Input
+                            id="reg-fullname"
+                            value={regFullName}
+                            onChange={(e) => setRegFullName(e.target.value)}
+                            placeholder="Ex: João da Silva Santos"
+                            className="pl-9 h-11 text-sm"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      {/* 2. E-mail */}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reg-email" className="text-xs font-semibold text-gray-700">
+                          E-mail *
+                        </Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <Input
+                            id="reg-email"
+                            type="email"
+                            value={regEmail}
+                            onChange={(e) => setRegEmail(e.target.value)}
+                            placeholder="seuemail@exemplo.com"
+                            className="pl-9 h-11 text-sm"
+                            required
+                            autoComplete="email"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 3. Telefone */}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reg-phone" className="text-xs font-semibold text-gray-700">
+                          Telefone / WhatsApp *
+                        </Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <Input
+                            id="reg-phone"
+                            type="tel"
+                            value={regPhone}
+                            onChange={(e) => setRegPhone(formatPhoneNumber(e.target.value))}
+                            placeholder="(00) 00000-0000"
+                            className="pl-9 h-11 text-sm"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      {/* 4. Senha e 5. Confirmação de Senha */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label
+                            htmlFor="reg-password"
+                            className="text-xs font-semibold text-gray-700"
+                          >
+                            Senha *
+                          </Label>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                            <Input
+                              id="reg-password"
+                              type={showRegPassword ? "text" : "password"}
+                              value={regPassword}
+                              onChange={(e) => setRegPassword(e.target.value)}
+                              placeholder="Mín. 6 caracteres"
+                              className="pl-9 pr-9 h-11 text-xs"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowRegPassword(!showRegPassword)}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                              tabIndex={-1}
+                            >
+                              {showRegPassword ? (
+                                <EyeOff className="h-3.5 w-3.5" />
+                              ) : (
+                                <Eye className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label
+                            htmlFor="reg-confirmpassword"
+                            className="text-xs font-semibold text-gray-700"
+                          >
+                            Confirmação de Senha *
+                          </Label>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                            <Input
+                              id="reg-confirmpassword"
+                              type={showRegPassword ? "text" : "password"}
+                              value={regConfirmPassword}
+                              onChange={(e) => setRegConfirmPassword(e.target.value)}
+                              placeholder="Repita a senha"
+                              className="pl-9 h-11 text-xs"
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="submit"
+                        disabled={isRegistering}
+                        className="w-full h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs mt-3"
+                      >
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        {isRegistering ? "Cadastrando..." : "Criar Minha Conta"}
+                      </Button>
+
+                      <div className="relative my-3">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-gray-200" />
+                        </div>
+                        <div className="relative flex justify-center text-xs">
+                          <span className="bg-white px-2 text-gray-500">ou cadastre-se com</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isGoogleLoading}
+                        onClick={handleGoogleSignIn}
+                        className="w-full h-11 text-xs font-semibold border-gray-300 hover:bg-gray-50 gap-2.5"
+                      >
+                        <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
+                          <path
+                            fill="#4285F4"
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                          />
+                        </svg>
+                        {isGoogleLoading ? "Conectando ao Firebase..." : "Criar Conta com Google"}
+                      </Button>
+
+                      <div className="text-center pt-2">
+                        <p className="text-xs text-gray-500">
+                          Já tem uma conta cadastrada?{" "}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab("entrar");
+                              setLoginError("");
+                            }}
+                            className="font-bold text-primary hover:underline"
+                          >
+                            Clique para entrar
+                          </button>
+                        </p>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      <SiteFooter />
+      <WhatsAppFab />
+
+      {/* Modal de Recuperação de Senha com Firebase Authentication */}
+      <Dialog open={isForgotModalOpen} onOpenChange={setIsForgotModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-gray-900">
+              <KeyRound className="h-5 w-5 text-primary" />
+              Recuperar Senha de Acesso
+            </DialogTitle>
+            <DialogDescription className="text-xs text-gray-500">
+              Informe seu e-mail cadastrado. Enviaremos as instruções do Firebase Authentication
+              para você redefinir sua senha com segurança.
+            </DialogDescription>
+          </DialogHeader>
+
+          {forgotSuccessMsg ? (
+            <div className="py-4 space-y-4 text-center">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 font-medium leading-relaxed">
+                {forgotSuccessMsg}
+              </div>
+              <Button
+                type="button"
+                className="w-full bg-primary hover:bg-primary/90 text-white"
+                onClick={() => setIsForgotModalOpen(false)}
+              >
+                Concluir
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSendForgotEmail} className="space-y-4 py-2">
+              {forgotErrorMsg && (
+                <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-medium">
+                  {forgotErrorMsg}
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="forgot-email" className="text-xs font-semibold text-gray-700">
+                  E-mail cadastrado
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="forgot-email"
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="seuemail@exemplo.com"
+                    className="pl-9 h-11 text-sm"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setIsForgotModalOpen(false)}
+                  disabled={isSendingForgot}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-primary hover:bg-primary/90 text-white"
+                  disabled={isSendingForgot}
+                >
+                  {isSendingForgot ? "Enviando..." : "Enviar link"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <FavoritesSheet open={favoritesSheetOpen} onOpenChange={setFavoritesSheetOpen} />
+    </div>
+  );
+}

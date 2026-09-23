@@ -1,0 +1,46 @@
+name: Deploy para GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Instalar dependências
+        run: npm ci || npm install
+
+      - name: Build para GitHub Pages
+        run: npm run build:gh-pages
+        env:
+          NODE_ENV: production
+          BASE_URL: ${{ github.event.repository.name && !endsWith(github.repository, '.github.io') && format('/{0}/', github.event.repository.name) || '/' }}
+
+      - name: Publicar na branch gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
