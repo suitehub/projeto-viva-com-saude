@@ -9,7 +9,6 @@ import {
   MessageCircle,
   MessageSquare,
   MoreVertical,
-  Send,
   Trash2,
   X,
 } from "lucide-react";
@@ -78,8 +77,14 @@ export function CustomerMessages() {
   const handleSendReply = () => {
     if (!selectedMessage || !replyText.trim()) return;
 
+    const phoneDigits = (selectedMessage.senderPhone || "").replace(/\D/g, "");
+    if (!phoneDigits) {
+      toast.error("Esta mensagem não tem WhatsApp cadastrado para responder.");
+      return;
+    }
+
     const messageId = selectedMessage.id;
-    const text = replyText;
+    const text = replyText.trim();
 
     const updated = messages.map((m) => {
       if (m.id === messageId) {
@@ -102,11 +107,14 @@ export function CustomerMessages() {
     });
     setReplyText("");
 
+    // Resposta oficial é pelo WhatsApp: abre a conversa e registra no banco.
+    window.open(`https://wa.me/${phoneDigits}?text=${encodeURIComponent(text)}`, "_blank");
+
     updateCustomerMessageReplyInFirestore(messageId, text)
-      .then(() => toast.success("Resposta enviada e salva no Firestore!"))
+      .then(() => toast.success("Resposta registrada e WhatsApp aberto!"))
       .catch((err) => {
         console.error("Erro ao salvar resposta no Firestore:", err);
-        toast.error("Erro ao salvar resposta no Firestore.");
+        toast.error("WhatsApp aberto, mas houve erro ao registrar a resposta no banco.");
       });
   };
 
@@ -393,52 +401,42 @@ export function CustomerMessages() {
               </div>
             )}
 
-            {/* Reply Input Form */}
+            {/* Reply Input Form — resposta oficial via WhatsApp */}
             <div className="space-y-2 pt-2">
               <label className="block text-xs font-bold text-gray-700">
-                Responder para {selectedMessage.senderEmail || selectedMessage.senderName}:
+                Responder via WhatsApp para{" "}
+                {selectedMessage.senderPhone || selectedMessage.senderName}:
               </label>
               <textarea
                 rows={4}
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
-                placeholder="Escreva sua resposta para o cliente..."
+                placeholder="Escreva a mensagem que será enviada no WhatsApp..."
                 className="w-full rounded-xl border border-gray-300 p-3 text-xs text-gray-800 focus:border-[#0066d6] focus:outline-hidden"
               />
+              {!selectedMessage.senderPhone && (
+                <p className="text-[11px] font-medium text-red-600">
+                  Esta mensagem não tem WhatsApp cadastrado — não é possível responder.
+                </p>
+              )}
 
-              <div className="flex items-center justify-between pt-2">
-                <div className="flex items-center gap-2">
-                  {selectedMessage.senderPhone && (
-                    <a
-                      href={`https://wa.me/${selectedMessage.senderPhone.replace(/\D/g, "")}?text=${encodeURIComponent("Olá " + selectedMessage.senderName + ", referente à sua mensagem no Projeto Viva com Saúde:")}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
-                    >
-                      <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
-                      Responder no WhatsApp
-                    </a>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMessage(null)}
-                    className="rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100"
-                  >
-                    Fechar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSendReply}
-                    disabled={!replyText.trim()}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#0066d6] px-4 py-2 text-xs font-bold text-white hover:bg-[#0052ad] disabled:opacity-50 transition-colors"
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                    Enviar resposta
-                  </button>
-                </div>
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedMessage(null)}
+                  className="rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100"
+                >
+                  Fechar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendReply}
+                  disabled={!replyText.trim() || !selectedMessage.senderPhone}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  Responder no WhatsApp
+                </button>
               </div>
             </div>
           </div>

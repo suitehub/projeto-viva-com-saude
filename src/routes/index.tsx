@@ -176,10 +176,15 @@ function Index() {
   };
 
   const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterPhone, setNewsletterPhone] = useState("");
 
   const submitNewsletter = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!newsletterEmail) return;
+    if (newsletterPhone.replace(/\D/g, "").length < 10) {
+      toast.error("Informe um WhatsApp válido com DDD para concluir o cadastro.");
+      return;
+    }
 
     // Inscrição da newsletter vai para o Firestore (coleção "messages"),
     // aparecendo na aba Mensagens do painel. LocalStorage é só fallback.
@@ -187,6 +192,7 @@ function Index() {
       id: `msg-${Date.now()}`,
       senderName: "Inscrição newsletter",
       senderEmail: newsletterEmail,
+      senderPhone: newsletterPhone.trim(),
       type: "Newsletter",
       content: "Pedido de inscrição na newsletter",
       date: new Date().toLocaleDateString("pt-BR"),
@@ -798,22 +804,34 @@ function Index() {
             <div>
               <h2 className="font-display text-2xl sm:text-3xl">Receba nossas ofertas</h2>
               <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                Cadastre seu e-mail e receba novidades, promoções e dicas de saúde e bem-estar.
+                Cadastre seu e-mail e WhatsApp e receba novidades, promoções e dicas de saúde e
+                bem-estar.
               </p>
               {newsletterSent ? (
                 <p className="mt-5 font-semibold text-primary">Cadastro realizado com sucesso!</p>
               ) : (
-                <form onSubmit={submitNewsletter} className="mt-5 flex max-w-lg gap-2">
-                  <Input
-                    required
-                    type="email"
-                    aria-label="Seu melhor e-mail"
-                    placeholder="Seu melhor e-mail"
-                    value={newsletterEmail}
-                    onChange={(e) => setNewsletterEmail(e.target.value)}
-                    className="h-11 bg-background"
-                  />
-                  <Button type="submit" className="h-11 px-6">
+                <form onSubmit={submitNewsletter} className="mt-5 max-w-lg space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      required
+                      type="email"
+                      aria-label="Seu melhor e-mail"
+                      placeholder="Seu melhor e-mail"
+                      value={newsletterEmail}
+                      onChange={(e) => setNewsletterEmail(e.target.value)}
+                      className="h-11 bg-background"
+                    />
+                    <Input
+                      required
+                      type="tel"
+                      aria-label="Seu WhatsApp com DDD"
+                      placeholder="WhatsApp com DDD"
+                      value={newsletterPhone}
+                      onChange={(e) => setNewsletterPhone(e.target.value)}
+                      className="h-11 bg-background"
+                    />
+                  </div>
+                  <Button type="submit" className="h-11 w-full px-6 sm:w-auto">
                     Cadastrar
                   </Button>
                 </form>
