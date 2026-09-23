@@ -29,6 +29,12 @@ export function ContactMessageForm({ onSuccess }: ContactMessageFormProps) {
     if (!name || !email || !message || sending) return;
     setSendError("");
 
+    // WhatsApp é obrigatório: a resposta do admin é só por lá.
+    if (phone.replace(/\D/g, "").length < 10) {
+      setSendError("Informe um WhatsApp válido com DDD — é por ele que responderemos.");
+      return;
+    }
+
     const newMessage: CustomerMessageItem = {
       id: `msg-${Date.now()}`,
       senderName: name,
@@ -156,10 +162,11 @@ export function ContactMessageForm({ onSuccess }: ContactMessageFormProps) {
 
         <div>
           <label className="block font-semibold text-foreground mb-1">
-            Telefone / WhatsApp (opcional)
+            Telefone / WhatsApp <span className="text-destructive">*</span>
           </label>
           <Input
-            type="text"
+            required
+            type="tel"
             placeholder="(11) 99999-9999"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
