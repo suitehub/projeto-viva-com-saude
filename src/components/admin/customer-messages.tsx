@@ -125,24 +125,6 @@ export function CustomerMessages() {
     toast.success("WhatsApp aberto!");
   };
 
-  const handleSendEmailReply = () => {
-    if (!selectedMessage || !replyText.trim()) return;
-
-    if (!selectedMessage.senderEmail) {
-      toast.error("Esta mensagem não tem e-mail cadastrado para responder.");
-      return;
-    }
-
-    const text = replyText.trim();
-
-    // Abre o app de e-mail do administrador com destino, assunto e texto prontos.
-    window.location.href = `mailto:${selectedMessage.senderEmail}?subject=${encodeURIComponent(
-      `Resposta — Projeto Viva com Saúde`,
-    )}&body=${encodeURIComponent(`Olá ${selectedMessage.senderName},\n\n${text}`)}`;
-    persistReply(text);
-    toast.success("Abrindo seu e-mail...");
-  };
-
   const handleToggleStatus = (id: string) => {
     const target = messages.find((m) => m.id === id);
     if (!target) return;
@@ -452,15 +434,6 @@ export function CustomerMessages() {
                   className="rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100"
                 >
                   Fechar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSendEmailReply}
-                  disabled={!replyText.trim() || !selectedMessage.senderEmail}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                >
-                  <Mail className="h-3.5 w-3.5 text-[#0066d6]" />
-                  Responder por E-mail
                 </button>
                 <button
                   type="button"

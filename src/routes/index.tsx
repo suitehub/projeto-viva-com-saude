@@ -812,25 +812,47 @@ function Index() {
               ) : (
                 <form onSubmit={submitNewsletter} className="mt-5 max-w-lg space-y-2">
                   <div className="flex flex-col gap-2 sm:flex-row">
-                    <Input
-                      required
-                      type="email"
-                      aria-label="Seu melhor e-mail"
-                      placeholder="Seu melhor e-mail"
-                      value={newsletterEmail}
-                      onChange={(e) => setNewsletterEmail(e.target.value)}
-                      className="h-11 bg-background"
-                    />
-                    <Input
-                      required
-                      type="tel"
-                      aria-label="Seu WhatsApp com DDD"
-                      placeholder="WhatsApp com DDD"
-                      value={newsletterPhone}
-                      onChange={(e) => setNewsletterPhone(e.target.value)}
-                      className="h-11 bg-background"
-                    />
+                    <div className="flex-1">
+                      <label
+                        htmlFor="newsletter-email"
+                        className="mb-1 block text-xs font-semibold text-foreground"
+                      >
+                        E-mail <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        id="newsletter-email"
+                        required
+                        type="email"
+                        aria-label="Seu melhor e-mail (obrigatório)"
+                        placeholder="Seu melhor e-mail"
+                        value={newsletterEmail}
+                        onChange={(e) => setNewsletterEmail(e.target.value)}
+                        className="h-11 bg-background"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label
+                        htmlFor="newsletter-phone"
+                        className="mb-1 block text-xs font-semibold text-foreground"
+                      >
+                        WhatsApp <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        id="newsletter-phone"
+                        required
+                        type="tel"
+                        aria-label="Seu WhatsApp com DDD (obrigatório)"
+                        placeholder="WhatsApp com DDD"
+                        value={newsletterPhone}
+                        onChange={(e) => setNewsletterPhone(e.target.value)}
+                        className="h-11 bg-background"
+                      />
+                    </div>
                   </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Campos marcados com <span className="font-bold text-red-500">*</span> são
+                    obrigatórios.
+                  </p>
                   <Button type="submit" className="h-11 w-full px-6 sm:w-auto">
                     Cadastrar
                   </Button>
