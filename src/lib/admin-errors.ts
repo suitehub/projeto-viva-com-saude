@@ -23,7 +23,7 @@ export function mapAdminWriteError(err: unknown, entityLabel: string): string {
   ) {
     return (
       `Não foi possível salvar ${entityLabel}: dados muito grandes. ` +
-      `Use fotos menores (o upload vai para o Storage automaticamente ao salvar).`
+      `Use fotos menores (o upload vai para o Cloudinary automaticamente ao salvar).`
     );
   }
   if (code === "unavailable" || message.includes("offline")) {

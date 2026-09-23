@@ -113,7 +113,7 @@ export function cacheAdminProducts(products: AdminProductItem[]): void {
  */
 
 /**
- * Remove data URLs (base64) do payload: fotos devem viver no Firebase Storage,
+ * Remove data URLs (base64) do payload: fotos vivem no Cloudinary,
  * com apenas a URL https salva no Firestore (limite de ~1MB por documento).
  */
 function sanitizeProductForFirestore(product: AdminProductItem): AdminProductItem {
@@ -139,7 +139,7 @@ function assertFirestorePayloadSize(payload: Record<string, unknown>): void {
   if (size > 900_000) {
     throw new Error(
       "IMAGENS_MUITO_GRANDES: payload acima do limite do Firestore. " +
-        "Selecione fotos menores — o upload vai para o Storage ao salvar.",
+        "Selecione fotos menores — o upload vai para o Cloudinary ao salvar.",
     );
   }
 }

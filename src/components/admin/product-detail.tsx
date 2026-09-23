@@ -239,10 +239,10 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
             toUpload.map((t) => t.file),
           );
         } catch (uploadErr) {
-          console.error("Erro ao enviar fotos ao Storage:", uploadErr);
+          console.error("Erro ao enviar fotos ao Cloudinary:", uploadErr);
           toast.error(
-            "Não foi possível enviar as fotos (Storage). " +
-              "Verifique as regras do Storage e sua permissão de administrador. " +
+            "Não foi possível enviar as fotos. " +
+              "Confira VITE_CLOUDINARY_CLOUD_NAME e VITE_CLOUDINARY_UPLOAD_PRESET no .env. " +
               "O produto será salvo sem as fotos novas.",
           );
           uploadedUrls = [];
