@@ -12,7 +12,6 @@ import {
   Send,
   Trash2,
   X,
-  Cloud,
 } from "lucide-react";
 import {
   CustomerMessageItem,
@@ -147,10 +146,6 @@ export function CustomerMessages() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">Mensagens</h1>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
-                <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-                Firestore Ativo
-              </span>
             </div>
             <p className="mt-1 text-xs text-gray-600">
               Seus clientes sempre por perto! Confira suas mensagens, consultas e notificações

@@ -17,7 +17,6 @@ import {
   X,
   XCircle,
   Zap,
-  Cloud,
   Trash2,
 } from "lucide-react";
 import {
@@ -97,7 +96,6 @@ export function SalesList() {
   const countPorEmbalar = sales.filter((s) => s.statusFilter === "embalar").length;
   const countPorEnviar = sales.filter((s) => s.statusFilter === "enviar").length;
   const countPorRetirar = sales.filter((s) => s.statusFilter === "retirar").length;
-  const countPorArquivar = 34; // exactly as in Nuvemshop screenshot
 
   const filteredSales = sales.filter((sale) => {
     const matchesSearch =
@@ -138,10 +136,6 @@ export function SalesList() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight sm:text-3xl">Vendas</h1>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-            Firestore Ativo
-          </span>
           <span className="text-xs font-medium text-gray-500">{sales.length} pedidos</span>
         </div>
 
@@ -289,9 +283,6 @@ export function SalesList() {
             }`}
           >
             <span>Por arquivar</span>
-            <span className="rounded-full bg-gray-700 px-1.5 py-0.2 text-[10px] font-bold text-white">
-              {countPorArquivar}
-            </span>
           </button>
         </div>
 

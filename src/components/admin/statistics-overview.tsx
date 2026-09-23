@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Clock, ExternalLink, Info, MoreVertical, Cloud } from "lucide-react";
+import { Clock, ExternalLink, Info, MoreVertical } from "lucide-react";
 import {
   SaleOrder,
   getCachedOrders,
@@ -145,14 +145,9 @@ export function StatisticsOverview() {
             <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl tracking-tight">
               Visão geral
             </h1>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-              Firestore Tempo Real
-            </span>
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            Exibindo dados sincronizados com o banco de dados{" "}
-            <strong className="font-semibold text-gray-700">Firestore</strong>
+            Acompanhe o desempenho da sua loja em tempo real.
           </p>
         </div>
 

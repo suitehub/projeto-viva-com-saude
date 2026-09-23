@@ -39,7 +39,6 @@ function AdminPage() {
       {activeSubTab === "lista-de-clientes" && <CustomersList />}
       {activeSubTab === "mensagens-clientes" && <CustomerMessages />}
       {activeSubTab === "lista-de-produtos" && <ProductsList />}
-      {activeSubTab === "categorias-produtos" && <ProductsList />}
       {activeSubTab === "lista-de-vendas" && <SalesList />}
       {activeSubTab === "carrinhos-abandonados" && <AbandonedCarts />}
       {activeSubTab === "descontos" && <DiscountsList />}

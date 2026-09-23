@@ -12,7 +12,6 @@ import {
   SlidersHorizontal,
   X,
   Zap,
-  Cloud,
   Trash2,
 } from "lucide-react";
 import {
@@ -63,10 +62,6 @@ export function AbandonedCarts() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight sm:text-3xl">
             Carrinhos abandonados
           </h1>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-            Firestore Ativo
-          </span>
         </div>
 
         <div className="flex items-center gap-2">
