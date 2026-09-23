@@ -232,12 +232,23 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
 
       let finalImages = ordered.filter((s) => !s.startsWith("blob:") && !s.startsWith("data:"));
       if (toUpload.length > 0) {
-        let uploadedUrls: string[];
+        let urlByPreview: Record<string, string> = {};
         try {
-          uploadedUrls = await uploadProductImages(
+          const result = await uploadProductImages(
+            toUpload.map((t) => ({ key: t.preview, file: t.file })),
             productId,
-            toUpload.map((t) => t.file),
           );
+          urlByPreview = result.urlByKey;
+          if (result.failedKeys.length > 0) {
+            const failedNames = toUpload
+              .filter((t) => result.failedKeys.includes(t.preview))
+              .map((t) => t.file.name || "foto")
+              .join(", ");
+            toast.warning(
+              `Algumas fotos não puderam ser enviadas (${failedNames}). ` +
+                `O produto será salvo com as demais. Dica: converta HEIC de iPhone para JPG.`,
+            );
+          }
         } catch (uploadErr) {
           console.error("Erro ao enviar fotos ao Cloudinary:", uploadErr);
           toast.error(
@@ -245,12 +256,7 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
               "Confira VITE_CLOUDINARY_CLOUD_NAME e VITE_CLOUDINARY_UPLOAD_PRESET no .env. " +
               "O produto será salvo sem as fotos novas.",
           );
-          uploadedUrls = [];
         }
-        const urlByPreview: Record<string, string> = {};
-        toUpload.forEach((t, i) => {
-          if (uploadedUrls[i]) urlByPreview[t.preview] = uploadedUrls[i];
-        });
         finalImages = ordered
           .map((s) => urlByPreview[s] || s)
           .filter((s) => !s.startsWith("blob:") && !s.startsWith("data:"));

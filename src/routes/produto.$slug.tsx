@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronDown,
   Copy,
@@ -28,7 +28,7 @@ import {
 import productsImage from "@/assets/viva-products.jpg";
 import { SiteFooter, SiteHeader, TopBar, WhatsAppFab } from "@/components/site-chrome";
 import { Button } from "@/components/ui/button";
-import { formatPrice, products } from "@/data/products";
+import { formatPrice } from "@/data/products";
 import {
   findStoreProductBySlug,
   fetchStoreProductBySlugFromFirestore,

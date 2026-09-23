@@ -34,13 +34,19 @@ export async function compressImageFile(file: File): Promise<Blob> {
 
 /**
  * Faz upload das fotos do produto para o Cloudinary (plano gratuito) e retorna
- * as URLs https. As URLs (strings curtas) são o que vai para o Firestore em
+ * as URLs https por chave. As URLs (strings curtas) são o que vai para o Firestore em
  * `images`/`imageUrl` — nunca base64.
+ *
+ * Falhas são isoladas por arquivo: um formato problemático (ex: HEIC de iPhone)
+ * não derruba as demais fotos — os falhos voltam em `failedKeys`.
  *
  * Configuração única: VITE_CLOUDINARY_CLOUD_NAME + VITE_CLOUDINARY_UPLOAD_PRESET
  * (preset do tipo Unsigned, pasta `products`).
  */
-export async function uploadProductImages(productId: string, files: File[]): Promise<string[]> {
+export async function uploadProductImages(
+  items: Array<{ key: string; file: File }>,
+  productId: string,
+): Promise<{ urlByKey: Record<string, string>; failedKeys: string[] }> {
   if (!CLOUD_NAME || !UPLOAD_PRESET) {
     throw new Error(
       "CLOUDINARY_NAO_CONFIGURADO: defina VITE_CLOUDINARY_CLOUD_NAME e " +
@@ -48,28 +54,36 @@ export async function uploadProductImages(productId: string, files: File[]): Pro
     );
   }
 
-  const urls: string[] = [];
-  for (const file of files) {
-    const compressed = await compressImageFile(file);
-    const form = new FormData();
-    form.append("file", compressed, file.name || `foto-${Date.now()}.jpg`);
-    form.append("upload_preset", UPLOAD_PRESET);
-    form.append("folder", `products/${productId}`);
+  const urlByKey: Record<string, string> = {};
+  const failedKeys: string[] = [];
 
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-      method: "POST",
-      body: form,
-    });
-    if (!res.ok) {
-      throw new Error(`CLOUDINARY_UPLOAD_FAILED: status ${res.status}`);
+  for (const item of items) {
+    try {
+      const compressed = await compressImageFile(item.file);
+      const form = new FormData();
+      form.append("file", compressed, item.file.name || `foto-${Date.now()}.jpg`);
+      form.append("upload_preset", UPLOAD_PRESET);
+      form.append("folder", `products/${productId}`);
+
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+        method: "POST",
+        body: form,
+      });
+      if (!res.ok) {
+        throw new Error(`CLOUDINARY_UPLOAD_FAILED: status ${res.status}`);
+      }
+      const data = (await res.json()) as { secure_url?: string };
+      if (!data.secure_url) {
+        throw new Error("CLOUDINARY_UPLOAD_FAILED: resposta sem secure_url");
+      }
+      urlByKey[item.key] = data.secure_url;
+    } catch (err) {
+      console.error(`Falha no upload da foto "${item.file.name}":`, err);
+      failedKeys.push(item.key);
     }
-    const data = (await res.json()) as { secure_url?: string };
-    if (!data.secure_url) {
-      throw new Error("CLOUDINARY_UPLOAD_FAILED: resposta sem secure_url");
-    }
-    urls.push(data.secure_url);
   }
-  return urls;
+
+  return { urlByKey, failedKeys };
 }
 
 /** Data URLs (base64) nunca podem ir para o Firestore — identifica para filtrar antes do save. */
