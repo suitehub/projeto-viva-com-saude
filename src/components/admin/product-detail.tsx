@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { AdminProductItem, PRESET_STORE_CATEGORIES } from "@/data/admin-products-data";
 import { slugify } from "@/data/all-store-products";
+import { uploadProductImages } from "@/lib/product-images";
 import productsImage from "@/assets/viva-products.jpg";
 
 interface ProductDetailProps {
@@ -39,6 +40,10 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
   const [costStr, setCostStr] = useState<string>(product.cost ? String(product.cost) : "");
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Fotos novas aguardando upload ao Storage (preview blob: -> File original).
+  // O Firestore recebe apenas URLs https — nunca base64.
+  const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
+  const [isUploading, setIsUploading] = useState(false);
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [activeCategoryInput, setActiveCategoryInput] = useState("");
@@ -87,28 +92,30 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
   };
 
   // Image Uploading & Drag and Drop Handlers
+  // Novas fotos viram preview local (blob:) e só sobem ao Storage no "Salvar".
   const handleFilesSelected = (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const fileArray = Array.from(files);
+    const fileArray = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (fileArray.length === 0) return;
 
-    fileArray.forEach((file) => {
-      if (!file.type.startsWith("image/")) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        if (result) {
-          setFormData((prev) => {
-            const currentImages = prev.images || [];
-            const newImages = [...currentImages, result];
-            return {
-              ...prev,
-              images: newImages,
-              imageUrl: newImages[0] || prev.imageUrl,
-            };
-          });
-        }
+    const additions = fileArray.map((file) => ({
+      preview: URL.createObjectURL(file),
+      file,
+    }));
+    const previewUrls = additions.map((a) => a.preview);
+    setPendingFiles((prev) => {
+      const next = { ...prev };
+      for (const a of additions) next[a.preview] = a.file;
+      return next;
+    });
+    setFormData((prev) => {
+      const currentImages = prev.images || [];
+      const newImages = [...currentImages, ...previewUrls];
+      return {
+        ...prev,
+        images: newImages,
+        imageUrl: newImages[0] || prev.imageUrl,
       };
-      reader.readAsDataURL(file);
     });
   };
 
@@ -134,6 +141,22 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
   };
 
   const handleRemoveImage = (indexToRemove: number) => {
+    const target = (formData.images || [])[indexToRemove];
+    if (target && (target.startsWith("blob:") || target.startsWith("data:"))) {
+      setPendingFiles((prev) => {
+        if (!(target in prev)) return prev;
+        const next = { ...prev };
+        delete next[target];
+        return next;
+      });
+      if (target.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(target);
+        } catch {
+          // ignore
+        }
+      }
+    }
     setFormData((prev) => {
       const currentImages = prev.images || [];
       const updated = currentImages.filter((_, idx) => idx !== indexToRemove);
@@ -166,11 +189,12 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
     formData.id ||
     `produto-${Date.now().toString().slice(-6)}`;
 
-  const handleSave = (andExit = false) => {
+  const handleSave = async (andExit = false) => {
     if (!formData.name || formData.name.trim() === "") {
       toast.error("Por favor, informe o nome do produto antes de salvar.");
       return;
     }
+    if (isUploading) return;
 
     const numericPrice = priceStr === "" ? 0 : parseFloat(priceStr.replace(",", ".")) || 0;
     const numericPromoPrice =
@@ -183,28 +207,92 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
       slugify(trimmedName) ||
       formData.id ||
       `produto-${Date.now().toString().slice(-6)}`;
+    const productId = formData.id || cleanSlug;
 
-    const updatedProduct: AdminProductItem = {
-      ...formData,
-      name: trimmedName,
-      urlSlug: cleanSlug,
-      price: numericPrice,
-      promotionalPrice: numericPromoPrice,
-      cost: numericCost,
-      imageUrl: (formData.images && formData.images[0]) || formData.imageUrl || "",
-      displayInStore: formData.displayInStore !== false,
-      visibility: formData.visibility || "Visível",
-    };
+    setIsUploading(true);
+    try {
+      // 1. Sobe fotos novas ao Storage preservando a ordem exibida (principal primeiro).
+      const ordered = [...(formData.images || [])];
+      if (ordered.length === 0 && formData.imageUrl && !formData.imageUrl.startsWith("data:")) {
+        ordered.push(formData.imageUrl);
+      }
+      const toUpload: { preview: string; file: File }[] = [];
+      for (const src of ordered) {
+        if (src.startsWith("blob:") && pendingFiles[src]) {
+          toUpload.push({ preview: src, file: pendingFiles[src] });
+        } else if (src.startsWith("data:")) {
+          const res = await fetch(src);
+          const blob = await res.blob();
+          toUpload.push({
+            preview: src,
+            file: new File([blob], `foto-${Date.now()}.jpg`, { type: "image/jpeg" }),
+          });
+        }
+      }
 
-    setFormData(updatedProduct);
-    onSave(updatedProduct, andExit);
-    setSavedSuccess(true);
-    toast.success(
-      andExit
-        ? "Produto salvo com sucesso! Voltando para a lista de produtos..."
-        : "Produto salvo com sucesso! Já está visível na loja.",
-    );
-    setTimeout(() => setSavedSuccess(false), 3000);
+      let finalImages = ordered.filter((s) => !s.startsWith("blob:") && !s.startsWith("data:"));
+      if (toUpload.length > 0) {
+        let uploadedUrls: string[];
+        try {
+          uploadedUrls = await uploadProductImages(
+            productId,
+            toUpload.map((t) => t.file),
+          );
+        } catch (uploadErr) {
+          console.error("Erro ao enviar fotos ao Storage:", uploadErr);
+          toast.error(
+            "Não foi possível enviar as fotos (Storage). " +
+              "Verifique as regras do Storage e sua permissão de administrador. " +
+              "O produto será salvo sem as fotos novas.",
+          );
+          uploadedUrls = [];
+        }
+        const urlByPreview: Record<string, string> = {};
+        toUpload.forEach((t, i) => {
+          if (uploadedUrls[i]) urlByPreview[t.preview] = uploadedUrls[i];
+        });
+        finalImages = ordered
+          .map((s) => urlByPreview[s] || s)
+          .filter((s) => !s.startsWith("blob:") && !s.startsWith("data:"));
+        // Libera previews locais e limpa pendências enviadas
+        for (const t of toUpload) {
+          if (t.preview.startsWith("blob:")) {
+            try {
+              URL.revokeObjectURL(t.preview);
+            } catch {
+              // ignore
+            }
+          }
+        }
+        setPendingFiles({});
+      }
+
+      const updatedProduct: AdminProductItem = {
+        ...formData,
+        id: productId,
+        name: trimmedName,
+        urlSlug: cleanSlug,
+        price: numericPrice,
+        promotionalPrice: numericPromoPrice,
+        cost: numericCost,
+        images: finalImages,
+        imageUrl: finalImages[0] || "",
+        displayInStore: formData.displayInStore !== false,
+        visibility: formData.visibility || "Visível",
+      };
+
+      setFormData(updatedProduct);
+      onSave(updatedProduct, andExit);
+      setSavedSuccess(true);
+      toast.success(
+        andExit
+          ? "Produto salvo com sucesso! Voltando para a lista de produtos..."
+          : "Produto salvo com sucesso! Já está visível na loja.",
+      );
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   // Image position styling
@@ -295,23 +383,27 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
             <button
               type="button"
               onClick={() => handleSave(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 shadow-xs transition-colors"
+              disabled={isUploading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 shadow-xs transition-colors disabled:opacity-60"
               title="Salvar produto e voltar para a lista de produtos"
             >
-              <span>Salvar e voltar</span>
+              <span>{isUploading ? "Enviando fotos..." : "Salvar e voltar"}</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleSave(false)}
-              className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold shadow-xs transition-all ${
+              disabled={isUploading}
+              className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold shadow-xs transition-all disabled:opacity-70 ${
                 savedSuccess
                   ? "bg-emerald-600 text-white"
                   : "bg-[#0066d6] hover:bg-[#0052ad] text-white"
               }`}
             >
               <Check className="h-4 w-4" />
-              <span>{savedSuccess ? "Produto salvo!" : "Salvar produto"}</span>
+              <span>
+                {isUploading ? "Enviando fotos..." : savedSuccess ? "Produto salvo!" : "Salvar produto"}
+              </span>
             </button>
           </div>
         </div>
@@ -1119,21 +1211,25 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
             <button
               type="button"
               onClick={() => handleSave(true)}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 shadow-xs transition-colors"
+              disabled={isUploading}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 shadow-xs transition-colors disabled:opacity-60"
             >
-              Salvar e voltar
+              {isUploading ? "Enviando fotos..." : "Salvar e voltar"}
             </button>
             <button
               type="button"
               onClick={() => handleSave(false)}
-              className={`flex items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-semibold shadow-xs transition-all ${
+              disabled={isUploading}
+              className={`flex items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-semibold shadow-xs transition-all disabled:opacity-70 ${
                 savedSuccess
                   ? "bg-emerald-600 text-white"
                   : "bg-[#0066d6] hover:bg-[#0052ad] text-white"
               }`}
             >
               <Check className="h-4 w-4" />
-              <span>{savedSuccess ? "Produto salvo!" : "Salvar produto"}</span>
+              <span>
+                {isUploading ? "Enviando fotos..." : savedSuccess ? "Produto salvo!" : "Salvar produto"}
+              </span>
             </button>
           </div>
         </div>

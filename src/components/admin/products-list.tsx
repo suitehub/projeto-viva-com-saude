@@ -26,6 +26,7 @@ import {
   saveAllAdminProductsToFirestore,
 } from "@/data/admin-products-data";
 import { exportToNuvemshopCsv, parseNuvemshopCsv } from "@/lib/nuvemshop-csv";
+import { mapAdminWriteError } from "@/lib/admin-errors";
 import productsImage from "@/assets/viva-products.jpg";
 import { ProductDetail } from "@/components/admin/product-detail";
 
@@ -61,36 +62,40 @@ export function ProductsList() {
     setProducts(updated);
   };
 
-  // Inline price editing
+  // Inline price editing — Firestore é a fonte oficial; reverte se falhar
   const handlePriceChange = (id: string, field: "price" | "promotionalPrice", val: number) => {
     const target = products.find((p) => p.id === id);
     if (!target) return;
     const updatedProd = { ...target, [field]: val };
-    const updatedList = products.map((p) => (p.id === id ? updatedProd : p));
-    setProducts(updatedList);
+    const previous = products;
+    setProducts(products.map((p) => (p.id === id ? updatedProd : p)));
     saveAdminProductToFirestore(updatedProd).catch((err) => {
       console.error("Erro ao salvar preço no Firestore:", err);
+      setProducts(previous);
+      toast.error(mapAdminWriteError(err, "o preço do produto"));
     });
   };
 
-  // Delete product directly
+  // Delete product directly — só remove da lista após confirmar no Firestore
   const confirmDeleteProduct = (id: string) => {
-    const updated = products.filter((p) => p.id !== id);
-    setProducts(updated);
+    const previous = products;
+    setProducts(products.filter((p) => p.id !== id));
     setSelectedIds((prev) => prev.filter((item) => item !== id));
     setProductToDelete(null);
     deleteAdminProductFromFirestore(id)
       .then(() => toast.success("Produto excluído do Firestore com sucesso!"))
       .catch((err) => {
         console.error("Erro ao excluir do Firestore:", err);
-        toast.error("Erro ao excluir produto no Firestore.");
+        setProducts(previous);
+        toast.error(mapAdminWriteError(err, "a exclusão do produto"));
       });
   };
 
-  // Bulk delete
+  // Bulk delete — reverte se falhar
   const confirmBulkDelete = () => {
     const count = selectedIds.length;
     const idsToDelete = [...selectedIds];
+    const previous = products;
     const updated = products.filter((p) => !selectedIds.includes(p.id));
     setProducts(updated);
     setSelectedIds([]);
@@ -98,10 +103,13 @@ export function ProductsList() {
 
     Promise.all(idsToDelete.map((id) => deleteAdminProductFromFirestore(id)))
       .then(() => toast.success(`${count} produto(s) excluído(s) do Firestore!`))
-      .catch(() => toast.error("Erro ao excluir alguns produtos do Firestore."));
+      .catch((err) => {
+        setProducts(previous);
+        toast.error(mapAdminWriteError(err, "a exclusão dos produtos"));
+      });
   };
 
-  // Duplicate product
+  // Duplicate product — só entra na lista após salvar no Firestore
   const handleDuplicateProduct = (prod: AdminProductItem) => {
     const newProduct: AdminProductItem = {
       ...prod,
@@ -109,11 +117,14 @@ export function ProductsList() {
       urlSlug: `${prod.urlSlug}-copia-${Date.now().toString().slice(-4)}`,
       name: `${prod.name} (Cópia)`,
     };
-    const updated = [newProduct, ...products];
-    setProducts(updated);
+    const previous = products;
+    setProducts([newProduct, ...products]);
     saveAdminProductToFirestore(newProduct)
       .then(() => toast.success(`Produto "${prod.name}" duplicado no Firestore!`))
-      .catch(() => toast.error("Erro ao salvar produto duplicado no Firestore."));
+      .catch((err) => {
+        setProducts(previous);
+        toast.error(mapAdminWriteError(err, "o produto duplicado"));
+      });
   };
 
   // Bulk selection
@@ -174,6 +185,7 @@ export function ProductsList() {
         }
 
         const merged = Array.from(existingMap.values());
+        const previous = products;
         setProducts(merged);
         saveAllAdminProductsToFirestore(merged)
           .then(() => {
@@ -187,7 +199,8 @@ export function ProductsList() {
           })
           .catch((err) => {
             console.error("Erro ao salvar CSV no Firestore:", err);
-            setImportStatusMessage("Erro ao sincronizar produtos com o Firestore.");
+            setProducts(previous);
+            setImportStatusMessage(mapAdminWriteError(err, "a importação CSV"));
           });
       } catch {
         setImportStatusMessage(
@@ -279,6 +292,7 @@ export function ProductsList() {
         onBack={() => setEditingProduct(null)}
         onSave={(updated, andExit = false) => {
           const index = products.findIndex((p) => p.id === updated.id);
+          const previous = products;
           let updatedList: AdminProductItem[];
           if (index >= 0) {
             updatedList = [...products];
@@ -288,16 +302,19 @@ export function ProductsList() {
           }
           setProducts(updatedList);
           saveAdminProductToFirestore(updated)
-            .then(() => toast.success("Produto salvo no Firestore com sucesso!"))
+            .then(() => {
+              toast.success("Produto salvo no Firestore com sucesso! Já está visível na loja.");
+              if (andExit) {
+                setEditingProduct(null);
+              } else {
+                setEditingProduct(updated);
+              }
+            })
             .catch((err) => {
               console.error("Erro ao salvar no Firestore:", err);
-              toast.error("Erro ao salvar produto no Firestore.");
+              setProducts(previous);
+              toast.error(mapAdminWriteError(err, "o produto"));
             });
-          if (andExit) {
-            setEditingProduct(null);
-          } else {
-            setEditingProduct(updated);
-          }
         }}
         onDelete={(id) => {
           confirmDeleteProduct(id);

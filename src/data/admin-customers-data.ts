@@ -113,7 +113,16 @@ export function cacheCustomerMessages(messages: CustomerMessageItem[]): void {
 }
 
 /**
- * Escuta a lista de clientes em tempo real do Firestore
+ * Clientes do CRM administrativo — fonte oficial: coleção "customers" no Firestore.
+ * O localStorage é apenas cache temporário, nunca a fonte oficial.
+ *
+ * IMPORTANTE: usuários do site (cadastro/login em /conta) vivem SOMENTE no
+ * Firebase Authentication e NUNCA são gravados aqui. Esta coleção é apenas
+ * para registros manuais/importados pelo administrador no painel.
+ */
+
+/**
+ * Escuta a lista de clientes em tempo real do Firestore (fonte oficial)
  */
 export function subscribeAdminCustomers(
   callback: (customers: AdminCustomerItem[]) => void,

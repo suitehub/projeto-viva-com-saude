@@ -119,28 +119,12 @@ service cloud.firestore {
     }
 
     // --- 2. Users Collection ---
+    // Perfis de usuário vivem SOMENTE no Firebase Authentication — nenhum
+    // documento de perfil é gravado no Firestore pelo app. Leituras/escritas
+    // do documento do usuário ficam bloqueadas; apenas a subcoleção de
+    // favoritos (por usuário) permanece ativa.
     match /users/{userId} {
-      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
-      allow list: if isAdmin();
-
-      allow create: if isValidId(userId) &&
-        isOwner(userId) &&
-        incoming().id == userId &&
-        isValidUserProfile(incoming());
-
-      allow update: if isValidId(userId) &&
-        isValidUserProfile(incoming()) &&
-        (
-          isAdmin() ||
-          (
-            isOwner(userId) &&
-            incoming().id == existing().id &&
-            incoming().createdAt == existing().createdAt &&
-            incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'email', 'phone', 'city', 'state', 'address', 'updatedAt'])
-          )
-        );
-
-      allow delete: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow get, list, create, update, delete: if false;
 
       // --- 3. User Favorites Subcollection (Master Gate) ---
       match /favorites/{productId} {

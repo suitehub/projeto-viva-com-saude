@@ -28,6 +28,7 @@ import {
   saveAllAdminCustomersToFirestore,
 } from "@/data/admin-customers-data";
 import { exportToCustomersCsv, parseCustomersCsv } from "@/lib/nuvemshop-customers-csv";
+import { mapAdminWriteError } from "@/lib/admin-errors";
 import { CustomerDetail } from "@/components/admin/customer-detail";
 
 interface CustomersListProps {
@@ -112,6 +113,7 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
         }
 
         const merged = Array.from(existingMap.values());
+        const previous = customers;
         setCustomers(merged);
         saveAllAdminCustomersToFirestore(merged)
           .then(() => {
@@ -125,7 +127,8 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
           })
           .catch((err) => {
             console.error("Erro ao salvar clientes no Firestore:", err);
-            setImportStatusMessage("Erro ao sincronizar clientes com o Firestore.");
+            setCustomers(previous);
+            setImportStatusMessage(mapAdminWriteError(err, "a importação de clientes"));
           });
       } catch {
         setImportStatusMessage(
@@ -179,13 +182,15 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
     };
 
     const updated = [created, ...customers];
+    const previous = customers;
     setCustomers(updated);
     setShowAddModal(false);
     saveAdminCustomerToFirestore(created)
       .then(() => toast.success("Cliente cadastrado e salvo no Firestore!"))
       .catch((err) => {
         console.error("Erro ao salvar cliente no Firestore:", err);
-        toast.error("Erro ao salvar cliente no Firestore.");
+        setCustomers(previous);
+        toast.error(mapAdminWriteError(err, "o cliente"));
       });
 
     setNewCustomerData({
@@ -201,13 +206,17 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
     });
   };
 
-  // Delete customer
+  // Delete customer — reverte se o Firestore recusar
   const handleDeleteCustomer = (id: string) => {
+    const previous = customers;
     const updated = customers.filter((c) => c.id !== id);
     setCustomers(updated);
     deleteAdminCustomerFromFirestore(id)
       .then(() => toast.success("Cliente removido do Firestore com sucesso!"))
-      .catch(() => toast.error("Erro ao remover cliente do Firestore."));
+      .catch((err) => {
+        setCustomers(previous);
+        toast.error(mapAdminWriteError(err, "a exclusão do cliente"));
+      });
   };
 
   // Filter
@@ -228,6 +237,7 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
         onBack={() => setViewingCustomer(null)}
         onSave={(updated) => {
           const idx = customers.findIndex((c) => c.id === updated.id);
+          const previous = customers;
           let updatedList: AdminCustomerItem[];
           if (idx >= 0) {
             updatedList = [...customers];
@@ -241,7 +251,8 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
             .then(() => toast.success("Cliente salvo no Firestore com sucesso!"))
             .catch((err) => {
               console.error("Erro ao atualizar cliente no Firestore:", err);
-              toast.error("Erro ao atualizar cliente no Firestore.");
+              setCustomers(previous);
+              toast.error(mapAdminWriteError(err, "o cliente"));
             });
         }}
         onDelete={(id) => {

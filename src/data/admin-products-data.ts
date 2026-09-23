@@ -107,7 +107,45 @@ export function cacheAdminProducts(products: AdminProductItem[]): void {
 }
 
 /**
- * Escuta produtos em tempo real do Firestore
+ * Firestore é a fonte oficial dos produtos. O localStorage abaixo é apenas
+ * cache temporário para resposta imediata da UI — nunca a fonte oficial.
+ * Usuários do site (Authentication) NÃO são salvos aqui.
+ */
+
+/**
+ * Remove data URLs (base64) do payload: fotos devem viver no Firebase Storage,
+ * com apenas a URL https salva no Firestore (limite de ~1MB por documento).
+ */
+function sanitizeProductForFirestore(product: AdminProductItem): AdminProductItem {
+  const cleanImages = (product.images || []).filter(
+    (src) => typeof src === "string" && !src.startsWith("data:"),
+  );
+  const cleanImageUrl =
+    product.imageUrl && !product.imageUrl.startsWith("data:") ? product.imageUrl : "";
+  return {
+    ...product,
+    images: cleanImages,
+    imageUrl: cleanImageUrl || cleanImages[0] || "",
+  };
+}
+
+function assertFirestorePayloadSize(payload: Record<string, unknown>): void {
+  let size = 0;
+  try {
+    size = new Blob([JSON.stringify(payload)]).size;
+  } catch {
+    size = JSON.stringify(payload).length;
+  }
+  if (size > 900_000) {
+    throw new Error(
+      "IMAGENS_MUITO_GRANDES: payload acima do limite do Firestore. " +
+        "Selecione fotos menores — o upload vai para o Storage ao salvar.",
+    );
+  }
+}
+
+/**
+ * Escuta produtos em tempo real do Firestore (fonte oficial)
  */
 export function subscribeAdminProducts(
   callback: (products: AdminProductItem[]) => void,
@@ -143,24 +181,27 @@ export function subscribeAdminProducts(
  * Salva ou atualiza um produto no Firestore
  */
 export async function saveAdminProductToFirestore(product: AdminProductItem): Promise<void> {
-  const docRef = doc(db, "products", product.id);
+  const sanitized = sanitizeProductForFirestore(product);
+  const docRef = doc(db, "products", sanitized.id);
   const payload = cleanFirestorePayload({
-    ...product,
+    ...sanitized,
     updatedAt: new Date().toISOString(),
-    createdAt: product.createdAt || new Date().toISOString(),
+    createdAt: sanitized.createdAt || new Date().toISOString(),
   });
+  assertFirestorePayloadSize(payload);
 
   await setDoc(docRef, payload, { merge: true });
 
   // Update local cache immediately for ultra-responsive UI
+  // (o snapshot do Firestore continua sendo a fonte oficial e confirma em seguida)
   const current = getCachedAdminProducts();
-  const index = current.findIndex((p) => p.id === product.id);
+  const index = current.findIndex((p) => p.id === sanitized.id);
   let updated: AdminProductItem[];
   if (index >= 0) {
     updated = [...current];
-    updated[index] = product;
+    updated[index] = sanitized;
   } else {
-    updated = [product, ...current];
+    updated = [sanitized, ...current];
   }
   cacheAdminProducts(updated);
   if (typeof window !== "undefined") {
@@ -195,12 +236,14 @@ export async function saveAllAdminProductsToFirestore(products: AdminProductItem
     const batch = writeBatch(db);
 
     for (const prod of chunk) {
-      const docRef = doc(db, "products", prod.id);
+      const sanitizedProd = sanitizeProductForFirestore(prod);
+      const docRef = doc(db, "products", sanitizedProd.id);
       const payload = cleanFirestorePayload({
-        ...prod,
+        ...sanitizedProd,
         updatedAt: new Date().toISOString(),
-        createdAt: prod.createdAt || new Date().toISOString(),
+        createdAt: sanitizedProd.createdAt || new Date().toISOString(),
       });
+      assertFirestorePayloadSize(payload);
       batch.set(docRef, payload, { merge: true });
     }
 

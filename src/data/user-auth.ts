@@ -124,7 +124,10 @@ function buildUserProfileFromFirebase(
 }
 
 /**
- * Cadastra novo usuário exclusivamente no Firebase Authentication
+ * Cadastra novo usuário exclusivamente no Firebase Authentication.
+ * GARANTIA: nenhum documento de usuário é gravado no Firestore aqui —
+ * perfil fica no Auth (displayName) + sessão local. Favoritos continuam
+ * em `users/{uid}/favorites` (subcoleção por usuário, não perfil).
  */
 export async function registerUser(data: {
   fullName: string;

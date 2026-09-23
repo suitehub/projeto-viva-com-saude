@@ -29,7 +29,7 @@ import heroImage from "@/assets/hero.png";
 import benefitsImage from "@/assets/viva-benefits.jpg";
 import productsImage from "@/assets/viva-products.jpg";
 import { Button } from "@/components/ui/button";
-import { formatPrice, products } from "@/data/products";
+import { formatPrice } from "@/data/products";
 import { getAllStoreProducts, useStoreProducts } from "@/data/all-store-products";
 import { Input } from "@/components/ui/input";
 import { ContactMessageForm } from "@/components/contact-message-form";
@@ -205,7 +205,7 @@ function Index() {
   };
 
   const handleFinalizarCompraWhatsApp = () => {
-    const selectedItems = products.filter((product) => cart[product.id]);
+    const selectedItems = storeProducts.filter((product) => cart[product.id]);
     if (!selectedItems.length) return;
     const itemsList = selectedItems
       .map((p) => `• ${p.name} (${cart[p.id]}x) - ${formatPrice(p.price * cart[p.id])}`)
