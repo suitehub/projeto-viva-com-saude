@@ -4,6 +4,7 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
+  updateEmail,
   updateProfile,
   updatePassword,
   sendPasswordResetEmail,
@@ -235,17 +236,30 @@ export async function updateUserProfile(
     return { success: false, error: "Usuário não autenticado ou sessão expirada." };
   }
 
-  if (updates.password && auth.currentUser) {
+  const fbUser = auth.currentUser;
+  const normalizedEmail = updates.email?.trim().toLowerCase();
+
+  // Troca de e-mail precisa acontecer no Firebase Authentication primeiro,
+  // senão o próximo login falha (Auth antigo x perfil local novo).
+  if (normalizedEmail && fbUser && normalizedEmail !== (fbUser.email || "").toLowerCase()) {
     try {
-      await updatePassword(auth.currentUser, updates.password);
+      await updateEmail(fbUser, normalizedEmail);
     } catch (err: unknown) {
       return { success: false, error: mapFirebaseAuthError(err) };
     }
   }
 
-  if (updates.fullName && auth.currentUser) {
+  if (updates.password && fbUser) {
     try {
-      await updateProfile(auth.currentUser, { displayName: updates.fullName });
+      await updatePassword(fbUser, updates.password);
+    } catch (err: unknown) {
+      return { success: false, error: mapFirebaseAuthError(err) };
+    }
+  }
+
+  if (updates.fullName && fbUser) {
+    try {
+      await updateProfile(fbUser, { displayName: updates.fullName });
     } catch {
       // non-blocking
     }
@@ -255,6 +269,7 @@ export async function updateUserProfile(
     ...current,
     ...updates,
     id: current.id,
+    email: normalizedEmail || current.email,
     createdAt: current.createdAt,
   };
   delete updated.password;

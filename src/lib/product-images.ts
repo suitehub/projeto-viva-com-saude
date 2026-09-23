@@ -33,6 +33,37 @@ export async function compressImageFile(file: File): Promise<Blob> {
 }
 
 /**
+ * Sobe um único arquivo de imagem ao Cloudinary (plano gratuito) e retorna a
+ * URL https. Usado pelo banner da loja e por outros uploads avulsos.
+ */
+export async function uploadSingleImage(file: File, folder: string): Promise<string> {
+  if (!CLOUD_NAME || !UPLOAD_PRESET) {
+    throw new Error(
+      "CLOUDINARY_NAO_CONFIGURADO: defina VITE_CLOUDINARY_CLOUD_NAME e " +
+        "VITE_CLOUDINARY_UPLOAD_PRESET no .env para enviar imagens.",
+    );
+  }
+  const compressed = await compressImageFile(file);
+  const form = new FormData();
+  form.append("file", compressed, file.name || `imagem-${Date.now()}.jpg`);
+  form.append("upload_preset", UPLOAD_PRESET);
+  form.append("folder", folder);
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    throw new Error(`CLOUDINARY_UPLOAD_FAILED: status ${res.status}`);
+  }
+  const data = (await res.json()) as { secure_url?: string };
+  if (!data.secure_url) {
+    throw new Error("CLOUDINARY_UPLOAD_FAILED: resposta sem secure_url");
+  }
+  return data.secure_url;
+}
+
+/**
  * Faz upload das fotos do produto para o Cloudinary (plano gratuito) e retorna
  * as URLs https por chave. As URLs (strings curtas) são o que vai para o Firestore em
  * `images`/`imageUrl` — nunca base64.
@@ -59,24 +90,7 @@ export async function uploadProductImages(
 
   for (const item of items) {
     try {
-      const compressed = await compressImageFile(item.file);
-      const form = new FormData();
-      form.append("file", compressed, item.file.name || `foto-${Date.now()}.jpg`);
-      form.append("upload_preset", UPLOAD_PRESET);
-      form.append("folder", `products/${productId}`);
-
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-        method: "POST",
-        body: form,
-      });
-      if (!res.ok) {
-        throw new Error(`CLOUDINARY_UPLOAD_FAILED: status ${res.status}`);
-      }
-      const data = (await res.json()) as { secure_url?: string };
-      if (!data.secure_url) {
-        throw new Error("CLOUDINARY_UPLOAD_FAILED: resposta sem secure_url");
-      }
-      urlByKey[item.key] = data.secure_url;
+      urlByKey[item.key] = await uploadSingleImage(item.file, `products/${productId}`);
     } catch (err) {
       console.error(`Falha no upload da foto "${item.file.name}":`, err);
       failedKeys.push(item.key);

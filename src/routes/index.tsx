@@ -38,7 +38,11 @@ import { FavoritesHeaderButton } from "@/components/products/favorites-sheet";
 import { ProductFavoriteButton } from "@/components/products/product-favorite-button";
 import { useCurrentUser } from "@/data/user-auth";
 import { toast } from "sonner";
-import { CustomerMessageItem, INITIAL_ADMIN_MESSAGES } from "@/data/admin-customers-data";
+import {
+  CustomerMessageItem,
+  INITIAL_ADMIN_MESSAGES,
+  saveCustomerMessageToFirestore,
+} from "@/data/admin-customers-data";
 import { useStoreSettings } from "@/hooks/use-store-settings";
 import {
   Sheet,
@@ -173,32 +177,40 @@ function Index() {
 
   const [newsletterEmail, setNewsletterEmail] = useState("");
 
-  const submitNewsletter = (event: FormEvent<HTMLFormElement>) => {
+  const submitNewsletter = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!newsletterEmail) return;
 
-    // 1. Create a customer message for the newsletter subscription
+    // Inscrição da newsletter vai para o Firestore (coleção "messages"),
+    // aparecendo na aba Mensagens do painel. LocalStorage é só fallback.
     const newMsg: CustomerMessageItem = {
       id: `msg-${Date.now()}`,
-      senderName: "Sem nome",
+      senderName: "Inscrição newsletter",
       senderEmail: newsletterEmail,
       type: "Newsletter",
       content: "Pedido de inscrição na newsletter",
       date: new Date().toLocaleDateString("pt-BR"),
-      status: "Respondida",
+      status: "Não respondida",
     };
 
     try {
-      const stored = localStorage.getItem("viva_admin_customer_messages");
-      const currentList: CustomerMessageItem[] = stored
-        ? JSON.parse(stored)
-        : INITIAL_ADMIN_MESSAGES;
-      localStorage.setItem(
-        "viva_admin_customer_messages",
-        JSON.stringify([newMsg, ...currentList]),
-      );
-    } catch {
-      // ignore
+      await saveCustomerMessageToFirestore(newMsg);
+    } catch (err) {
+      console.error("Erro ao salvar newsletter no Firestore, usando cache local:", err);
+      try {
+        const stored = localStorage.getItem("viva_admin_customer_messages");
+        const currentList: CustomerMessageItem[] = stored
+          ? JSON.parse(stored)
+          : INITIAL_ADMIN_MESSAGES;
+        localStorage.setItem(
+          "viva_admin_customer_messages",
+          JSON.stringify([newMsg, ...currentList]),
+        );
+      } catch {
+        // ignore
+      }
+      toast.error("Cadastro salvo localmente: sem conexão com o banco de dados.");
+      return;
     }
 
     setNewsletterSent(true);

@@ -2,7 +2,12 @@ import React, { useState } from "react";
 import { MessageSquare, Send, CheckCircle2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CustomerMessageItem, INITIAL_ADMIN_MESSAGES } from "@/data/admin-customers-data";
+import {
+  CustomerMessageItem,
+  INITIAL_ADMIN_MESSAGES,
+  saveCustomerMessageToFirestore,
+} from "@/data/admin-customers-data";
+import { toast } from "sonner";
 
 interface ContactMessageFormProps {
   onSuccess?: () => void;
@@ -16,10 +21,13 @@ export function ContactMessageForm({ onSuccess }: ContactMessageFormProps) {
   const [trackingCode, setTrackingCode] = useState("");
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !message) return;
+    if (!name || !email || !message || sending) return;
+    setSendError("");
 
     const newMessage: CustomerMessageItem = {
       id: `msg-${Date.now()}`,
@@ -38,16 +46,30 @@ export function ContactMessageForm({ onSuccess }: ContactMessageFormProps) {
       status: "Não respondida",
     };
 
+    // Fonte oficial: Firestore (coleção "messages"). LocalStorage é só fallback.
+    setSending(true);
     try {
-      const stored = localStorage.getItem("viva_admin_customer_messages");
-      const currentList: CustomerMessageItem[] = stored
-        ? JSON.parse(stored)
-        : INITIAL_ADMIN_MESSAGES;
-      const updated = [newMessage, ...currentList];
-      localStorage.setItem("viva_admin_customer_messages", JSON.stringify(updated));
-    } catch {
-      // ignore
+      await saveCustomerMessageToFirestore(newMessage);
+    } catch (err) {
+      console.error("Erro ao enviar mensagem ao Firestore:", err);
+      try {
+        const stored = localStorage.getItem("viva_admin_customer_messages");
+        const currentList: CustomerMessageItem[] = stored
+          ? JSON.parse(stored)
+          : INITIAL_ADMIN_MESSAGES;
+        const updated = [newMessage, ...currentList];
+        localStorage.setItem("viva_admin_customer_messages", JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      setSendError(
+        "Não foi possível alcançar o banco de dados. Sua mensagem foi salva neste navegador.",
+      );
+      toast.error("Falha de conexão: mensagem salva apenas neste navegador.");
+      setSending(false);
+      return;
     }
+    setSending(false);
 
     setSent(true);
     onSuccess?.();
@@ -186,10 +208,16 @@ export function ContactMessageForm({ onSuccess }: ContactMessageFormProps) {
         </div>
       </div>
 
+      {sendError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+          {sendError}
+        </div>
+      )}
+
       <div className="flex justify-end pt-1">
-        <Button type="submit" className="gap-2 px-6">
+        <Button type="submit" className="gap-2 px-6" disabled={sending}>
           <Send className="h-4 w-4" />
-          <span>Enviar Mensagem</span>
+          <span>{sending ? "Enviando..." : "Enviar Mensagem"}</span>
         </Button>
       </div>
     </form>

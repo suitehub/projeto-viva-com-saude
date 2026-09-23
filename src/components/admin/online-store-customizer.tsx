@@ -26,14 +26,23 @@ import {
   DEFAULT_STORE_SETTINGS,
   getStoreSettings,
   saveStoreSettings,
+  saveStoreSettingsToFirestore,
   subscribeStoreSettings,
   StoreSettings,
 } from "@/data/store-settings";
+import { uploadSingleImage } from "@/lib/product-images";
+import { mapAdminWriteError } from "@/lib/admin-errors";
 import heroImageDefault from "@/assets/hero.png";
 
 export function OnlineStoreCustomizer() {
   const [settings, setSettings] = useState<StoreSettings>(() => getStoreSettings());
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  // Foto nova do banner aguardando upload ao Cloudinary (preview blob: -> File).
+  // O Firestore recebe apenas a URL https — nunca base64.
+  const [pendingHeroFile, setPendingHeroFile] = useState<{ preview: string; file: File } | null>(
+    null,
+  );
 
   useEffect(() => {
     const unsubscribe = subscribeStoreSettings((loaded) => {
@@ -47,24 +56,66 @@ export function OnlineStoreCustomizer() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showResetModal, setShowResetModal] = useState(false);
 
-  const handleSave = (e?: React.FormEvent) => {
+  const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    saveStoreSettings(settings);
-    setSavedSuccess(true);
-    toast.success("Configurações da loja salvas com sucesso!");
-    setTimeout(() => setSavedSuccess(false), 3000);
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      let next = settings;
+      // Sobe o banner novo ao Cloudinary antes de gravar as configurações.
+      if (pendingHeroFile) {
+        try {
+          const url = await uploadSingleImage(pendingHeroFile.file, "store");
+          try {
+            URL.revokeObjectURL(pendingHeroFile.preview);
+          } catch {
+            // ignore
+          }
+          next = { ...settings, heroImageUrl: url };
+          setSettings(next);
+          setPendingHeroFile(null);
+        } catch (uploadErr) {
+          console.error("Erro ao enviar banner ao Cloudinary:", uploadErr);
+          toast.error(
+            "Não foi possível enviar a imagem do banner. Confira a configuração do Cloudinary no .env.",
+          );
+          setIsSaving(false);
+          return;
+        }
+      }
+      await saveStoreSettings(next);
+      try {
+        await saveStoreSettingsToFirestore(next);
+      } catch (err) {
+        console.error("Erro ao salvar configurações no Firestore:", err);
+        toast.error(mapAdminWriteError(err, "as configurações da loja"));
+        setIsSaving(false);
+        return;
+      }
+      setSavedSuccess(true);
+      toast.success("Configurações da loja salvas com sucesso!");
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleConfirmReset = () => {
+  const handleConfirmReset = async () => {
     setSettings(DEFAULT_STORE_SETTINGS);
-    saveStoreSettings(DEFAULT_STORE_SETTINGS);
-    setSavedSuccess(true);
     setShowResetModal(false);
-    toast.success("Padrões de fábrica restaurados com sucesso!");
-    setTimeout(() => setSavedSuccess(false), 3000);
+    try {
+      await saveStoreSettingsToFirestore(DEFAULT_STORE_SETTINGS);
+      saveStoreSettings(DEFAULT_STORE_SETTINGS);
+      setSavedSuccess(true);
+      toast.success("Padrões de fábrica restaurados com sucesso!");
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err) {
+      console.error("Erro ao restaurar padrões no Firestore:", err);
+      toast.error(mapAdminWriteError(err, "a restauração dos padrões"));
+    }
   };
 
-  // Image Upload handler (converts to base64 data URL so it displays instantly in preview & site)
+  // Image Upload handler (preview local imediato; upload ao Cloudinary no Salvar)
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -74,17 +125,21 @@ export function OnlineStoreCustomizer() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (dataUrl) {
-        setSettings((prev) => ({
-          ...prev,
-          heroImageUrl: dataUrl,
-        }));
+    if (pendingHeroFile) {
+      try {
+        URL.revokeObjectURL(pendingHeroFile.preview);
+      } catch {
+        // ignore
       }
-    };
-    reader.readAsDataURL(file);
+    }
+    const preview = URL.createObjectURL(file);
+    setPendingHeroFile({ preview, file });
+    setSettings((prev) => ({
+      ...prev,
+      heroImageUrl: preview,
+    }));
+    // Permite selecionar o mesmo arquivo de novo se preciso
+    e.target.value = "";
   };
 
   // Quick formatted phone helper
@@ -146,10 +201,11 @@ export function OnlineStoreCustomizer() {
             <button
               type="button"
               onClick={() => handleSave()}
-              className="flex items-center gap-1.5 rounded-lg bg-[#0066d6] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#0052ad] transition-colors"
+              disabled={isSaving}
+              className="flex items-center gap-1.5 rounded-lg bg-[#0066d6] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#0052ad] transition-colors disabled:opacity-70"
             >
               <Save className="h-3.5 w-3.5" />
-              <span>Salvar alterações</span>
+              <span>{isSaving ? "Salvando..." : "Salvar alterações"}</span>
             </button>
           </div>
         </div>
@@ -467,7 +523,17 @@ export function OnlineStoreCustomizer() {
                       {settings.heroImageUrl && (
                         <button
                           type="button"
-                          onClick={() => setSettings({ ...settings, heroImageUrl: "" })}
+                          onClick={() => {
+                            if (pendingHeroFile) {
+                              try {
+                                URL.revokeObjectURL(pendingHeroFile.preview);
+                              } catch {
+                                // ignore
+                              }
+                              setPendingHeroFile(null);
+                            }
+                            setSettings({ ...settings, heroImageUrl: "" });
+                          }}
                           className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
                           title="Restaurar banner padrão da loja"
                         >
@@ -486,8 +552,23 @@ export function OnlineStoreCustomizer() {
                     </label>
                     <input
                       type="url"
-                      value={settings.heroImageUrl.startsWith("data:") ? "" : settings.heroImageUrl}
-                      onChange={(e) => setSettings({ ...settings, heroImageUrl: e.target.value })}
+                      value={
+                        settings.heroImageUrl.startsWith("data:") ||
+                        settings.heroImageUrl.startsWith("blob:")
+                          ? ""
+                          : settings.heroImageUrl
+                      }
+                      onChange={(e) => {
+                        if (pendingHeroFile) {
+                          try {
+                            URL.revokeObjectURL(pendingHeroFile.preview);
+                          } catch {
+                            // ignore
+                          }
+                          setPendingHeroFile(null);
+                        }
+                        setSettings({ ...settings, heroImageUrl: e.target.value });
+                      }}
                       placeholder="https://sua-loja.com/imagem-banner.jpg"
                       className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs text-gray-900 focus:border-[#0066d6] focus:outline-hidden"
                     />
@@ -903,10 +984,11 @@ export function OnlineStoreCustomizer() {
             <button
               type="button"
               onClick={() => handleSave()}
-              className="flex items-center gap-2 rounded-lg bg-[#0066d6] px-6 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[#0052ad] transition-colors"
+              disabled={isSaving}
+              className="flex items-center gap-2 rounded-lg bg-[#0066d6] px-6 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[#0052ad] transition-colors disabled:opacity-70"
             >
               <Save className="h-4 w-4" />
-              <span>Salvar todas as alterações</span>
+              <span>{isSaving ? "Salvando..." : "Salvar todas as alterações"}</span>
             </button>
           </div>
         </div>
