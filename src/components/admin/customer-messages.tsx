@@ -74,17 +74,10 @@ export function CustomerMessages() {
       .catch(() => toast.error("Erro ao excluir mensagens do Firestore."));
   };
 
-  const handleSendReply = () => {
-    if (!selectedMessage || !replyText.trim()) return;
-
-    const phoneDigits = (selectedMessage.senderPhone || "").replace(/\D/g, "");
-    if (!phoneDigits) {
-      toast.error("Esta mensagem não tem WhatsApp cadastrado para responder.");
-      return;
-    }
-
+  /** Registra a resposta no banco (otimista + confirmação no Firestore). */
+  const persistReply = (text: string) => {
+    if (!selectedMessage) return;
     const messageId = selectedMessage.id;
-    const text = replyText.trim();
 
     const updated = messages.map((m) => {
       if (m.id === messageId) {
@@ -107,15 +100,47 @@ export function CustomerMessages() {
     });
     setReplyText("");
 
-    // Resposta oficial é pelo WhatsApp: abre a conversa e registra no banco.
-    window.open(`https://wa.me/${phoneDigits}?text=${encodeURIComponent(text)}`, "_blank");
-
     updateCustomerMessageReplyInFirestore(messageId, text)
-      .then(() => toast.success("Resposta registrada e WhatsApp aberto!"))
+      .then(() => toast.success("Resposta registrada no banco!"))
       .catch((err) => {
         console.error("Erro ao salvar resposta no Firestore:", err);
-        toast.error("WhatsApp aberto, mas houve erro ao registrar a resposta no banco.");
+        toast.error("Canal aberto, mas houve erro ao registrar a resposta no banco.");
       });
+  };
+
+  const handleSendReply = () => {
+    if (!selectedMessage || !replyText.trim()) return;
+
+    const phoneDigits = (selectedMessage.senderPhone || "").replace(/\D/g, "");
+    if (!phoneDigits) {
+      toast.error("Esta mensagem não tem WhatsApp cadastrado para responder.");
+      return;
+    }
+
+    const text = replyText.trim();
+
+    // Resposta oficial é pelo WhatsApp: abre a conversa e registra no banco.
+    window.open(`https://wa.me/${phoneDigits}?text=${encodeURIComponent(text)}`, "_blank");
+    persistReply(text);
+    toast.success("WhatsApp aberto!");
+  };
+
+  const handleSendEmailReply = () => {
+    if (!selectedMessage || !replyText.trim()) return;
+
+    if (!selectedMessage.senderEmail) {
+      toast.error("Esta mensagem não tem e-mail cadastrado para responder.");
+      return;
+    }
+
+    const text = replyText.trim();
+
+    // Abre o app de e-mail do administrador com destino, assunto e texto prontos.
+    window.location.href = `mailto:${selectedMessage.senderEmail}?subject=${encodeURIComponent(
+      `Resposta — Projeto Viva com Saúde`,
+    )}&body=${encodeURIComponent(`Olá ${selectedMessage.senderName},\n\n${text}`)}`;
+    persistReply(text);
+    toast.success("Abrindo seu e-mail...");
   };
 
   const handleToggleStatus = (id: string) => {
@@ -420,13 +445,22 @@ export function CustomerMessages() {
                 </p>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setSelectedMessage(null)}
                   className="rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100"
                 >
                   Fechar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendEmailReply}
+                  disabled={!replyText.trim() || !selectedMessage.senderEmail}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                >
+                  <Mail className="h-3.5 w-3.5 text-[#0066d6]" />
+                  Responder por E-mail
                 </button>
                 <button
                   type="button"
