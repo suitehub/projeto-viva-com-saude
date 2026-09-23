@@ -25,6 +25,7 @@ import {
   saveAllAdminProductsToFirestore,
 } from "@/data/admin-products-data";
 import { exportToNuvemshopCsv, parseNuvemshopCsv } from "@/lib/nuvemshop-csv";
+import { readCsvText } from "@/lib/csv-encoding";
 import { mapAdminWriteError } from "@/lib/admin-errors";
 import productsImage from "@/assets/viva-products.jpg";
 import { ProductDetail } from "@/components/admin/product-detail";
@@ -160,54 +161,57 @@ export function ProductsList() {
     setShowExportImportModal(false);
   };
 
-  // CSV Import
+  // CSV Import (detecta UTF-8 ou Windows-1252 do Excel para não corromper acentos)
   const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Permite importar o mesmo arquivo de novo
+    e.target.value = "";
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (!text) return;
+    readCsvText(file)
+      .then((text) => {
+        if (!text) return;
 
-      try {
-        const imported = parseNuvemshopCsv(text);
-        if (imported.length === 0) {
-          setImportStatusMessage("Nenhum produto válido encontrado no arquivo CSV.");
-          return;
+        try {
+          const imported = parseNuvemshopCsv(text);
+          if (imported.length === 0) {
+            setImportStatusMessage("Nenhum produto válido encontrado no arquivo CSV.");
+            return;
+          }
+
+          // Merge or replace
+          const existingMap = new Map(products.map((p) => [p.urlSlug, p]));
+          for (const item of imported) {
+            existingMap.set(item.urlSlug, item);
+          }
+
+          const merged = Array.from(existingMap.values());
+          const previous = products;
+          setProducts(merged);
+          saveAllAdminProductsToFirestore(merged)
+            .then(() => {
+              setImportStatusMessage(
+                `Sucesso! ${imported.length} produtos importados e salvos no Firestore com êxito.`,
+              );
+              setTimeout(() => {
+                setImportStatusMessage(null);
+                setShowExportImportModal(false);
+              }, 2500);
+            })
+            .catch((err) => {
+              console.error("Erro ao salvar CSV no Firestore:", err);
+              setProducts(previous);
+              setImportStatusMessage(mapAdminWriteError(err, "a importação CSV"));
+            });
+        } catch {
+          setImportStatusMessage(
+            "Erro ao processar o arquivo. Verifique se o formato coincide com o modelo Nuvemshop.",
+          );
         }
-
-        // Merge or replace
-        const existingMap = new Map(products.map((p) => [p.urlSlug, p]));
-        for (const item of imported) {
-          existingMap.set(item.urlSlug, item);
-        }
-
-        const merged = Array.from(existingMap.values());
-        const previous = products;
-        setProducts(merged);
-        saveAllAdminProductsToFirestore(merged)
-          .then(() => {
-            setImportStatusMessage(
-              `Sucesso! ${imported.length} produtos importados e salvos no Firestore com êxito.`,
-            );
-            setTimeout(() => {
-              setImportStatusMessage(null);
-              setShowExportImportModal(false);
-            }, 2500);
-          })
-          .catch((err) => {
-            console.error("Erro ao salvar CSV no Firestore:", err);
-            setProducts(previous);
-            setImportStatusMessage(mapAdminWriteError(err, "a importação CSV"));
-          });
-      } catch {
-        setImportStatusMessage(
-          "Erro ao processar o arquivo. Verifique se o formato coincide com o modelo Nuvemshop.",
-        );
-      }
-    };
-    reader.readAsText(file, "UTF-8");
+      })
+      .catch(() => {
+        setImportStatusMessage("Não foi possível ler o arquivo CSV.");
+      });
   };
 
   // New product

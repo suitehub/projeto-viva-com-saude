@@ -27,6 +27,7 @@ import {
   saveAllAdminCustomersToFirestore,
 } from "@/data/admin-customers-data";
 import { exportToCustomersCsv, parseCustomersCsv } from "@/lib/nuvemshop-customers-csv";
+import { readCsvText } from "@/lib/csv-encoding";
 import { mapAdminWriteError } from "@/lib/admin-errors";
 import { CustomerDetail } from "@/components/admin/customer-detail";
 
@@ -88,54 +89,57 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
     setShowExportImportModal(false);
   };
 
-  // CSV Import
+  // CSV Import (detecta UTF-8 ou Windows-1252 do Excel para não corromper acentos)
   const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Permite importar o mesmo arquivo de novo
+    e.target.value = "";
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (!text) return;
+    readCsvText(file)
+      .then((text) => {
+        if (!text) return;
 
-      try {
-        const imported = parseCustomersCsv(text);
-        if (imported.length === 0) {
-          setImportStatusMessage("Nenhum cliente válido encontrado no arquivo CSV.");
-          return;
+        try {
+          const imported = parseCustomersCsv(text);
+          if (imported.length === 0) {
+            setImportStatusMessage("Nenhum cliente válido encontrado no arquivo CSV.");
+            return;
+          }
+
+          const existingMap = new Map(customers.map((c) => [c.email.toLowerCase() || c.id, c]));
+          for (const item of imported) {
+            const key = item.email.toLowerCase() || item.id;
+            existingMap.set(key, item);
+          }
+
+          const merged = Array.from(existingMap.values());
+          const previous = customers;
+          setCustomers(merged);
+          saveAllAdminCustomersToFirestore(merged)
+            .then(() => {
+              setImportStatusMessage(
+                `Sucesso! ${imported.length} clientes importados e salvos no Firestore com êxito.`,
+              );
+              setTimeout(() => {
+                setImportStatusMessage(null);
+                setShowExportImportModal(false);
+              }, 2500);
+            })
+            .catch((err) => {
+              console.error("Erro ao salvar clientes no Firestore:", err);
+              setCustomers(previous);
+              setImportStatusMessage(mapAdminWriteError(err, "a importação de clientes"));
+            });
+        } catch {
+          setImportStatusMessage(
+            "Erro ao processar o arquivo. Verifique se o formato coincide com o modelo Nuvemshop.",
+          );
         }
-
-        const existingMap = new Map(customers.map((c) => [c.email.toLowerCase() || c.id, c]));
-        for (const item of imported) {
-          const key = item.email.toLowerCase() || item.id;
-          existingMap.set(key, item);
-        }
-
-        const merged = Array.from(existingMap.values());
-        const previous = customers;
-        setCustomers(merged);
-        saveAllAdminCustomersToFirestore(merged)
-          .then(() => {
-            setImportStatusMessage(
-              `Sucesso! ${imported.length} clientes importados e salvos no Firestore com êxito.`,
-            );
-            setTimeout(() => {
-              setImportStatusMessage(null);
-              setShowExportImportModal(false);
-            }, 2500);
-          })
-          .catch((err) => {
-            console.error("Erro ao salvar clientes no Firestore:", err);
-            setCustomers(previous);
-            setImportStatusMessage(mapAdminWriteError(err, "a importação de clientes"));
-          });
-      } catch {
-        setImportStatusMessage(
-          "Erro ao processar o arquivo. Verifique se o formato coincide com o modelo Nuvemshop.",
-        );
-      }
-    };
-    reader.readAsText(file, "UTF-8");
+      })
+      .catch(() => {
+        setImportStatusMessage("Não foi possível ler o arquivo CSV.");
+      });
   };
 
   // Add customer
