@@ -10,6 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import logoImage from "../assets/logoprojeto.png";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
@@ -84,7 +85,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "Projeto Viva com Saúde" },
       { property: "og:description", content: "Produtos naturais para uma vida melhor." },
       { property: "og:type", content: "website" },
-      { property: "og:image", content: "/logoprojeto.png" },
+      { property: "og:image", content: logoImage },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
@@ -98,8 +99,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap",
       },
-      { rel: "icon", href: "/logoprojeto.png", type: "image/png" },
-      { rel: "apple-touch-icon", href: "/logoprojeto.png" },
+      { rel: "icon", href: logoImage, type: "image/png" },
+      { rel: "apple-touch-icon", href: logoImage },
     ],
   }),
   shellComponent: RootShell,

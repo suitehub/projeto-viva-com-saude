@@ -4,6 +4,7 @@ import { ShieldAlert, LogIn, Copy, Check, LogOut, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import logoImage from "@/assets/logoprojeto.png";
 import {
   useCurrentUser,
   useIsAdmin,
@@ -94,7 +95,7 @@ function AdminLoginScreen() {
     <div className="grid min-h-screen place-items-center bg-[#f7f8fa] px-4 font-sans">
       <div className="w-full max-w-md overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
         <div className="bg-[#0066d6] px-6 py-5 text-white">
-          <img src="/logoprojeto.png" alt="Projeto Viva com Saúde" className="h-9 w-auto" />
+          <img src={logoImage} alt="Projeto Viva com Saúde" className="h-9 w-auto" />
           <h1 className="mt-3 text-lg font-bold">Painel do Administrador</h1>
           <p className="text-xs text-white/80">Entre com sua conta de administrador para continuar.</p>
         </div>

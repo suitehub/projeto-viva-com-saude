@@ -28,6 +28,7 @@ import {
 import heroImage from "@/assets/hero.png";
 import benefitsImage from "@/assets/viva-benefits.jpg";
 import productsImage from "@/assets/viva-products.jpg";
+import logoImage from "@/assets/logoprojeto.png";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/data/products";
 import { getAllStoreProducts, useStoreProducts } from "@/data/all-store-products";
@@ -104,7 +105,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
       aria-label="Projeto Viva com Saúde — início"
     >
       <img
-        src="/logoprojeto.png"
+        src={logoImage}
         alt="Projeto Viva com Saúde"
         className={
           compact

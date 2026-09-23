@@ -25,6 +25,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useStoreSettings } from "@/hooks/use-store-settings";
+import logoImage from "@/assets/logoprojeto.png";
 import { UserAccountDropdown } from "@/components/auth/user-account-dropdown";
 import { FavoritesHeaderButton } from "@/components/products/favorites-sheet";
 import { useCurrentUser } from "@/data/user-auth";
@@ -38,7 +39,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
       aria-label="Projeto Viva com Saúde — início"
     >
       <img
-        src="/logoprojeto.png"
+        src={logoImage}
         alt="Projeto Viva com Saúde"
         className={
           compact

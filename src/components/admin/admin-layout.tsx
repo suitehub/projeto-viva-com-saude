@@ -1,6 +1,7 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { subscribeCustomerMessages } from "@/data/admin-customers-data";
+import logoImage from "@/assets/logoprojeto.png";
 import {
   BarChart3,
   ChevronDown,
@@ -105,7 +106,7 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
           <div className="flex h-16 items-center justify-between border-b border-[#f0f2f5] px-4">
             <Link to="/" className="flex items-center gap-2 overflow-hidden" title="Voltar à Loja">
               <img
-                src="/logoprojeto.png"
+                src={logoImage}
                 alt="Projeto Viva com Saúde"
                 className="h-8 max-h-9 w-auto max-w-[170px] object-contain"
               />
