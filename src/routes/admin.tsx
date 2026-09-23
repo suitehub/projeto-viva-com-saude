@@ -31,7 +31,7 @@ export const Route = createFileRoute("/admin")({
 
 function AdminPage() {
   const search = Route.useSearch();
-  const [activeSubTab, setActiveSubTab] = useState<StatSubTab>(search.tab || "lista-de-clientes");
+  const [activeSubTab, setActiveSubTab] = useState<StatSubTab>(search.tab || "visao-geral");
 
   return (
     <AdminGate>
