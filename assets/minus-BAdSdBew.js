@@ -1,0 +1,1 @@
+import{nt as e}from"./all-store-products-B33Qiz8x.js";var t=e(`minus`,[[`path`,{d:`M5 12h14`,key:`1ays0h`}]]);export{t};
