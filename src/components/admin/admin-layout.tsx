@@ -255,15 +255,6 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
                         }`}
                       >
                         <span>Lista de vendas</span>
-                        <span
-                          className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                            activeSubTab === "lista-de-vendas"
-                              ? "bg-white/20 text-white"
-                              : "bg-[#0066d6] text-white"
-                          }`}
-                        >
-                          40
-                        </span>
                       </button>
 
                       <button
@@ -379,16 +370,11 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
                     </div>
 
                     {!sidebarCollapsed && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="rounded-full bg-[#0066d6] px-1.5 py-0.2 text-[10px] font-bold text-white leading-none">
-                          3
-                        </span>
-                        <ChevronDown
-                          className={`h-3.5 w-3.5 text-gray-500 transition-transform ${
-                            customersExpanded ? "rotate-180" : ""
-                          }`}
-                        />
-                      </div>
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 text-gray-500 transition-transform ${
+                          customersExpanded ? "rotate-180" : ""
+                        }`}
+                      />
                     )}
                   </button>
 
@@ -422,15 +408,6 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
                         }`}
                       >
                         <span>Mensagens</span>
-                        <span
-                          className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                            activeSubTab === "mensagens-clientes"
-                              ? "bg-white text-[#0066d6]"
-                              : "bg-[#0066d6] text-white"
-                          }`}
-                        >
-                          3
-                        </span>
                       </button>
                     </div>
                   )}
