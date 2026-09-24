@@ -31,7 +31,7 @@ import productsImage from "@/assets/viva-products.jpg";
 import logoImage from "@/assets/logoprojeto.png";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/data/products";
-import { getAllStoreProducts, useStoreProducts } from "@/data/all-store-products";
+import { getAllStoreProducts, useStoreProducts, normalizeSearchText } from "@/data/all-store-products";
 import { Input } from "@/components/ui/input";
 import { ContactMessageForm } from "@/components/contact-message-form";
 import { UserAccountDropdown } from "@/components/auth/user-account-dropdown";
@@ -131,17 +131,25 @@ function Index() {
   const [newsletterSent, setNewsletterSent] = useState(false);
 
   const filteredProducts = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("pt-BR");
+    const normalized = normalizeSearchText(query.trim());
     return storeProducts.filter((product) => {
       const matchesCategory =
         category === "Todas" ||
         (product.category && product.category.toLowerCase().includes(category.toLowerCase()));
       const matchesSearch =
         !normalized ||
-        `${product.name} ${product.category}`.toLocaleLowerCase("pt-BR").includes(normalized);
+        normalizeSearchText(`${product.name} ${product.category}`).includes(normalized);
       return matchesCategory && matchesSearch;
     });
   }, [category, query, storeProducts]);
+
+  // Enter na busca da home leva para a página de produtos com o termo aplicado
+  const goToSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const term = query.trim();
+    if (!term) return;
+    navigate({ to: "/produtos", search: { busca: term } });
+  };
 
   const featuredProducts = useMemo(() => {
     const isFiltering = query.trim() !== "" || category !== "Todas";
@@ -317,7 +325,11 @@ function Index() {
             </a>
           </nav>
           <div className="flex items-center justify-end gap-1 sm:gap-2">
-            <label className="relative hidden w-64 xl:block">
+            <form
+              onSubmit={goToSearch}
+              className="relative hidden w-64 xl:block"
+              role="search"
+            >
               <span className="sr-only">Buscar produtos</span>
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -338,7 +350,7 @@ function Index() {
                   <X />
                 </Button>
               )}
-            </label>
+            </form>
             <UserAccountDropdown className="hidden sm:inline-flex" />
             <FavoritesHeaderButton className="hidden sm:inline-flex" onAddToCart={addToCart} />
             <Button
@@ -503,7 +515,7 @@ function Index() {
           </div>
         </div>
         <div className="border-t border-border px-4 py-2 xl:hidden">
-          <label className="relative mx-auto block max-w-2xl">
+          <form onSubmit={goToSearch} className="relative mx-auto block max-w-2xl" role="search">
             <span className="sr-only">Buscar produtos</span>
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -512,7 +524,7 @@ function Index() {
               placeholder="Buscar produtos..."
               className="h-9 rounded-full bg-muted pl-9 shadow-none"
             />
-          </label>
+          </form>
         </div>
       </header>
 

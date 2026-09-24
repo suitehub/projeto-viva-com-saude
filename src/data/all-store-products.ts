@@ -28,6 +28,19 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * Normaliza texto para busca: minúsculas + sem acentos.
+ * "Ácido Hialurônico" -> "acido hialuronico", então "acido" encontra "ácido".
+ */
+export function normalizeSearchText(text: string | undefined | null): string {
+  if (!text) return "";
+  return text
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 // In-memory cache for fast synchronous access
 let cachedStoreProducts: Product[] | null = null;
 let isFirestoreSubscribed = false;

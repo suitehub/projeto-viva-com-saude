@@ -22,7 +22,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { formatPrice, Product } from "@/data/products";
-import { getAllStoreProducts, useStoreProducts } from "@/data/all-store-products";
+import { getAllStoreProducts, useStoreProducts, normalizeSearchText } from "@/data/all-store-products";
 import { ProductFavoriteButton } from "@/components/products/product-favorite-button";
 import { useCurrentUser } from "@/data/user-auth";
 import { toast } from "sonner";
@@ -120,23 +120,24 @@ export function AllProductsPage() {
     return Math.max(...allProducts.map((p) => p.price), 80);
   }, [allProducts]);
 
-  // Filtering & Sorting
+  // Filtering & Sorting (busca sem acento: "acido" encontra "ácido")
   const filteredProducts = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = normalizeSearchText(searchQuery.trim());
 
     return allProducts.filter((p) => {
       // Category match
-      const pCats = p.category ? p.category.toLowerCase() : "";
+      const pCats = normalizeSearchText(p.category);
       const matchesCategory =
-        selectedCategory === "Todas" || pCats.includes(selectedCategory.toLowerCase());
+        selectedCategory === "Todas" ||
+        pCats.includes(normalizeSearchText(selectedCategory));
 
       // Search match
       const matchesSearch =
         !query ||
-        p.name.toLowerCase().includes(query) ||
-        p.category.toLowerCase().includes(query) ||
-        (p.shortDescription && p.shortDescription.toLowerCase().includes(query)) ||
-        (p.sku && p.sku.toLowerCase().includes(query));
+        normalizeSearchText(p.name).includes(query) ||
+        pCats.includes(query) ||
+        (p.shortDescription && normalizeSearchText(p.shortDescription).includes(query)) ||
+        (p.sku && normalizeSearchText(p.sku).includes(query));
 
       // Discount match
       const matchesDiscount = !onlyDiscount || p.discount > 0;
