@@ -25,11 +25,7 @@ import {
   X,
 } from "lucide-react";
 
-import heroMounjaro from "@/assets/hero-mounjaro.png";
-import heroMacaPeruana from "@/assets/hero-maca-peruana.png";
-import heroFiocaps from "@/assets/hero-fiocaps.png";
-import heroRilexMax from "@/assets/hero-rilex-max.png";
-import heroColagenoTipo2 from "@/assets/hero-colageno-tipo-2.png";
+import heroImage from "@/assets/hero.png";
 import benefitsImage from "@/assets/viva-benefits.jpg";
 import productsImage from "@/assets/viva-products.jpg";
 import logoImage from "@/assets/logoprojeto.png";
@@ -101,17 +97,6 @@ const benefits = [
   { icon: Leaf, title: "Produtos originais", copy: "e de alta qualidade" },
 ];
 
-// Carrossel da hero: 5 fotos de produtos em fade (5s cada), nesta ordem
-const HERO_SLIDES = [
-  { src: heroMounjaro, alt: "Mounjaro 100% Natural sobre pedestal de pedra" },
-  { src: heroMacaPeruana, alt: "Maca Peruana sobre pedestal de pedra" },
-  { src: heroFiocaps, alt: "Fiocaps sobre pedestal de pedra" },
-  { src: heroRilexMax, alt: "Rilex Max sobre pedestal de pedra" },
-  { src: heroColagenoTipo2, alt: "Colágeno Tipo 2 sobre pedestal de pedra" },
-];
-
-const HERO_SLIDE_MS = 5000;
-
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <a
@@ -140,16 +125,6 @@ function Index() {
 
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todas");
-  const [heroIndex, setHeroIndex] = useState(0);
-
-  // Troca automática do banner da hero a cada 5s com fade
-  useEffect(() => {
-    if (HERO_SLIDES.length <= 1) return;
-    const timer = setInterval(() => {
-      setHeroIndex((current) => (current + 1) % HERO_SLIDES.length);
-    }, HERO_SLIDE_MS);
-    return () => clearInterval(timer);
-  }, []);
   const [cart, setCart] = useState<Record<number, number>>({});
   const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -554,20 +529,16 @@ function Index() {
       </header>
 
       <section className="relative min-h-[33rem] overflow-hidden sm:min-h-[36rem]">
-        {HERO_SLIDES.map((slide, index) => (
-          <img
-            key={slide.src}
-            src={slide.src}
-            alt={slide.alt}
-            width={1536}
-            height={864}
-            loading={index === 0 ? "eager" : "lazy"}
-            aria-hidden={index === heroIndex ? undefined : true}
-            className={`absolute inset-0 h-full w-full object-cover object-[62%_center] transition-opacity duration-1000 sm:object-center ${
-              index === heroIndex ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        ))}
+        <img
+          src={settings.heroImageUrl || heroImage}
+          alt={
+            settings.heroImageAlt ||
+            "Suplemento natural Viva entre folhas e flores sobre pedestal de pedra"
+          }
+          width={1536}
+          height={864}
+          className="absolute inset-0 h-full w-full object-cover object-[62%_center] sm:object-center"
+        />
         <div className="absolute inset-0 bg-hero-overlay" />
         <div className="relative mx-auto flex min-h-[33rem] max-w-7xl items-center px-5 py-16 sm:min-h-[36rem] lg:px-8">
           <div className="max-w-xl">
@@ -600,22 +571,6 @@ function Index() {
               </span>
             </div>
           </div>
-        </div>
-        {/* Bolinhas de navegação do carrossel */}
-        <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 gap-2">
-          {HERO_SLIDES.map((slide, index) => (
-            <button
-              key={slide.src}
-              type="button"
-              onClick={() => setHeroIndex(index)}
-              aria-label={`Ver banner ${index + 1}: ${slide.alt}`}
-              className={`h-2.5 rounded-full transition-all ${
-                index === heroIndex
-                  ? "w-7 bg-primary"
-                  : "w-2.5 bg-primary/30 hover:bg-primary/60"
-              }`}
-            />
-          ))}
         </div>
       </section>
 
