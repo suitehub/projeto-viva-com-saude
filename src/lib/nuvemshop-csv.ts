@@ -1,8 +1,15 @@
 import { AdminProductItem, CSV_HEADER } from "@/data/admin-products-data";
+import { parseBrPrice } from "./csv-encoding";
 
 /**
- * Parses CSV text with semicolon delimiter matching Nuvemshop format:
- * "Identificador URL";Nome;Categorias;"Nome da variação 1";"Valor da variação 1";"Nome da variação 2";"Valor da variação 2";"Nome da variação 3";"Valor da variação 3";Preço;"Preço promocional";"Peso (kg)";"Altura (cm)";"Largura (cm)";"Comprimento (cm)";Estoque;SKU;"Código de barras";"Exibir na loja";"Frete gratis";Descrição;Tags;"Título para SEO";"Descrição para SEO";Marca;"Produto Físico";"MPN (Cód. Exclusivo Modelo Fabricante)";Sexo;"Faixa etária";Custo;Visibilidade
+ * Parses CSV text with semicolon delimiter matching Nuvemshop format
+ * (31 colunas, índices 0-30):
+ * 0 "Identificador URL"; 1 Nome; 2 Categorias; 3-8 variações (nome/valor x3);
+ * 9 Preço; 10 "Preço promocional"; 11 "Peso (kg)"; 12 "Altura (cm)";
+ * 13 "Largura (cm)"; 14 "Comprimento (cm)"; 15 Estoque; 16 SKU;
+ * 17 "Código de barras"; 18 "Exibir na loja"; 19 "Frete gratis"; 20 Descrição;
+ * 21 Tags; 22 "Título para SEO"; 23 "Descrição para SEO"; 24 Marca;
+ * 25 "Produto Físico"; 26 MPN; 27 Sexo; 28 "Faixa etária"; 29 Custo; 30 Visibilidade
  */
 export function parseNuvemshopCsv(csvText: string): AdminProductItem[] {
   const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -21,36 +28,28 @@ export function parseNuvemshopCsv(csvText: string): AdminProductItem[] {
     if (!name) continue;
 
     const categories = cleanField(columns[2]) || "Geral";
-    const priceStr = cleanField(columns[10]).replace(",", ".");
-    const promoStr = cleanField(columns[11]).replace(",", ".");
-    const weightStr = cleanField(columns[12]).replace(",", ".");
-    const heightStr = cleanField(columns[13]).replace(",", ".");
-    const widthStr = cleanField(columns[14]).replace(",", ".");
-    const lengthStr = cleanField(columns[15]).replace(",", ".");
-    const stockStr = cleanField(columns[16]);
-    const sku = cleanField(columns[17]);
-    const barcode = cleanField(columns[18]);
-    const displayInStoreStr = cleanField(columns[19]).toUpperCase();
-    const freeShippingStr = cleanField(columns[20]).toUpperCase();
-    const description = cleanField(columns[21]);
-    const tags = cleanField(columns[22]);
-    const seoTitle = cleanField(columns[23]);
-    const seoDescription = cleanField(columns[24]);
-    const brand = cleanField(columns[25]) || "Projeto Viva com Saúde";
-    const isPhysicalStr = cleanField(columns[26]).toUpperCase();
-    const mpn = cleanField(columns[27]);
-    const gender = cleanField(columns[28]);
-    const ageGroup = cleanField(columns[29]);
-    const costStr = cleanField(columns[30]).replace(",", ".");
-    const visibilityStr = cleanField(columns[31]);
-
-    const price = parseFloat(priceStr) || 0;
-    const promotionalPrice = parseFloat(promoStr) || 0;
-    const weightKg = parseFloat(weightStr) || 0;
-    const heightCm = parseFloat(heightStr) || 1;
-    const widthCm = parseFloat(widthStr) || 1;
-    const lengthCm = parseFloat(lengthStr) || 1;
-    const cost = parseFloat(costStr) || 0;
+    const price = parseBrPrice(columns[9]);
+    const promotionalPrice = parseBrPrice(columns[10]);
+    const weightKg = parseBrPrice(columns[11]);
+    const heightCm = parseBrPrice(columns[12]) || 1;
+    const widthCm = parseBrPrice(columns[13]) || 1;
+    const lengthCm = parseBrPrice(columns[14]) || 1;
+    const stockStr = cleanField(columns[15]);
+    const sku = cleanField(columns[16]);
+    const barcode = cleanField(columns[17]);
+    const displayInStoreStr = cleanField(columns[18]).toUpperCase();
+    const freeShippingStr = cleanField(columns[19]).toUpperCase();
+    const description = cleanField(columns[20]);
+    const tags = cleanField(columns[21]);
+    const seoTitle = cleanField(columns[22]);
+    const seoDescription = cleanField(columns[23]);
+    const brand = cleanField(columns[24]) || "Projeto Viva com Saúde";
+    const isPhysicalStr = cleanField(columns[25]).toUpperCase();
+    const mpn = cleanField(columns[26]);
+    const gender = cleanField(columns[27]);
+    const ageGroup = cleanField(columns[28]);
+    const cost = parseBrPrice(columns[29]);
+    const visibilityStr = cleanField(columns[30]);
 
     let stock: string | number = "Infinito";
     if (stockStr && !isNaN(Number(stockStr))) {

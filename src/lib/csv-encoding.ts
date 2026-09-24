@@ -23,3 +23,28 @@ export async function readCsvText(file: File): Promise<string> {
     return new TextDecoder("windows-1252").decode(slice);
   }
 }
+
+/**
+ * Converte valor monetário BR/US para número:
+ * "65.00" -> 65 | "65,00" -> 65 | "1.299,00" -> 1299 | "R$ 65,00" -> 65.
+ */
+export function parseBrPrice(val?: string): number {
+  if (!val) return 0;
+  let s = String(val)
+    .trim()
+    .replace(/[R$\s]/g, "");
+  if (!s) return 0;
+  const hasDot = s.includes(".");
+  const hasComma = s.includes(",");
+  if (hasDot && hasComma) {
+    if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
+      s = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      s = s.replace(/,/g, "");
+    }
+  } else if (hasComma) {
+    s = s.replace(",", ".");
+  }
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : 0;
+}

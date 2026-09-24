@@ -1,4 +1,5 @@
 import { AdminCustomerItem, CUSTOMER_CSV_HEADER } from "@/data/admin-customers-data";
+import { parseBrPrice } from "./csv-encoding";
 
 /**
  * Parses customers CSV matching Nuvemshop format:
@@ -30,7 +31,7 @@ export function parseCustomersCsv(csvText: string): AdminCustomerItem[] {
     const cep = cleanField(columns[12]);
     const country = cleanField(columns[13]) || "Brasil";
 
-    const totalSpentStr = cleanField(columns[14]).replace(",", ".");
+    const totalSpent = parseBrPrice(columns[14]);
     const purchasesCountStr = cleanField(columns[15]);
     const lastPurchaseDate = cleanField(columns[16]);
     const registrationDate = cleanField(columns[17]);
@@ -40,7 +41,6 @@ export function parseCustomersCsv(csvText: string): AdminCustomerItem[] {
     const marketingUpdateDate = cleanField(columns[21]);
     const tags = cleanField(columns[22]);
 
-    const totalSpent = parseFloat(totalSpentStr) || 0;
     const purchasesCount = parseInt(purchasesCountStr, 10) || 0;
 
     const id =
