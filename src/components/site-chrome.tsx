@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ChevronDown,
@@ -86,6 +87,15 @@ export function SiteHeader({
 }) {
   const navigate = useNavigate();
   const { isLoggedIn } = useCurrentUser();
+  const [headerQuery, setHeaderQuery] = useState("");
+
+  // Enter na busca do cabeçalho leva para /produtos com o termo aplicado
+  const goToSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const term = headerQuery.trim();
+    if (!term) return;
+    navigate({ to: "/produtos", search: { busca: term } });
+  };
 
   const handleCartClick = () => {
     if (!isLoggedIn) {
@@ -125,14 +135,16 @@ export function SiteHeader({
           </Link>
         </nav>
         <div className="flex items-center justify-end gap-1 sm:gap-2">
-          <label className="relative hidden w-64 xl:block">
+          <form onSubmit={goToSearch} className="relative hidden w-64 xl:block" role="search">
             <span className="sr-only">Buscar produtos</span>
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              value={headerQuery}
+              onChange={(event) => setHeaderQuery(event.target.value)}
               placeholder="O que você está procurando?"
               className="h-10 rounded-full border-0 bg-muted pl-9 pr-8 shadow-none"
             />
-          </label>
+          </form>
           <UserAccountDropdown className="hidden sm:inline-flex" />
           <FavoritesHeaderButton className="hidden sm:inline-flex" />
           <Button
