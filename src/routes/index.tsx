@@ -390,13 +390,22 @@ function Index() {
                         key={product.id}
                         className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 border-b border-border pb-4"
                       >
-                        <div
-                          className="product-crop h-20 rounded-md"
-                          style={{
-                            backgroundImage: `url(${productsImage})`,
-                            backgroundPosition: product.imagePosition,
-                          }}
-                        />
+                        {product.imageUrl ? (
+                          <img
+                            src={product.imageUrl}
+                            alt={product.name}
+                            className="h-20 w-full rounded-md object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div
+                            className="product-crop h-20 rounded-md"
+                            style={{
+                              backgroundImage: `url(${productsImage})`,
+                              backgroundPosition: product.imagePosition,
+                            }}
+                          />
+                        )}
                         <div className="min-w-0">
                           <p className="text-sm font-semibold leading-snug">{product.name}</p>
                           <p className="mt-1 font-bold text-primary">

@@ -131,13 +131,22 @@ export function FavoritesSheet({ open, onOpenChange, onAddToCart }: FavoritesShe
                   key={product.id}
                   className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 pt-3 first:pt-0"
                 >
-                  <div
-                    className="product-crop h-20 rounded-md border border-border/50 bg-muted"
-                    style={{
-                      backgroundImage: `url(${productsImage})`,
-                      backgroundPosition: product.imagePosition,
-                    }}
-                  />
+                  {product.imageUrl ? (
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      className="h-20 w-full rounded-md border border-border/50 object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div
+                      className="product-crop h-20 rounded-md border border-border/50 bg-muted"
+                      style={{
+                        backgroundImage: `url(${productsImage})`,
+                        backgroundPosition: product.imagePosition,
+                      }}
+                    />
+                  )}
                   <div className="flex flex-col justify-between min-w-0">
                     <div>
                       <div className="flex items-start justify-between gap-1">

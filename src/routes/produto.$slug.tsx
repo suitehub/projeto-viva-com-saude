@@ -596,15 +596,24 @@ function ProductPage() {
                 <span className="absolute right-1.5 top-1.5 z-10 rounded-full bg-primary px-2 py-1 text-[0.62rem] font-bold text-primary-foreground">
                   {item.discount}% OFF
                 </span>
-                <div
-                  role="img"
-                  aria-label={`Pote de ${item.name}`}
-                  className="product-crop aspect-[4/5] w-full transition-transform duration-500 group-hover:scale-105"
-                  style={{
-                    backgroundImage: `url(${productsImage})`,
-                    backgroundPosition: item.imagePosition,
-                  }}
-                />
+                {item.imageUrl ? (
+                  <img
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="aspect-[4/5] w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div
+                    role="img"
+                    aria-label={`Pote de ${item.name}`}
+                    className="product-crop aspect-[4/5] w-full transition-transform duration-500 group-hover:scale-105"
+                    style={{
+                      backgroundImage: `url(${productsImage})`,
+                      backgroundPosition: item.imagePosition,
+                    }}
+                  />
+                )}
               </div>
               <h3 className="mt-3 min-h-10 text-xs font-semibold leading-snug sm:text-sm">
                 {item.name}
