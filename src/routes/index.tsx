@@ -35,7 +35,7 @@ import productsImage from "@/assets/viva-products.jpg";
 import logoImage from "@/assets/logoprojeto.png";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/data/products";
-import { getAllStoreProducts, useStoreProducts, normalizeSearchText } from "@/data/all-store-products";
+import { getAllStoreProducts, useStoreProducts, normalizeSearchText, isProductOutOfStock } from "@/data/all-store-products";
 import { Input } from "@/components/ui/input";
 import { ContactMessageForm } from "@/components/contact-message-form";
 import { UserAccountDropdown } from "@/components/auth/user-account-dropdown";
@@ -196,6 +196,11 @@ function Index() {
     if (!isLoggedIn) {
       toast.info("Faça login para adicionar produtos ao carrinho!");
       navigate({ to: "/conta", search: { tab: "entrar" } });
+      return;
+    }
+    const target = storeProducts.find((p) => String(p.id) === String(id));
+    if (target && isProductOutOfStock(target)) {
+      toast.error("Este produto está esgotado no momento.");
       return;
     }
     setCart((current) => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
@@ -684,9 +689,15 @@ function Index() {
               >
                 <div className="relative overflow-hidden rounded-md bg-muted">
                   <ProductFavoriteButton productId={product.id} productName={product.name} />
-                  <span className="absolute right-1.5 top-1.5 z-10 rounded-full bg-sale px-2 py-1 text-[0.62rem] font-bold text-sale-foreground">
-                    {product.discount}% OFF
-                  </span>
+                  {isProductOutOfStock(product) ? (
+                    <span className="absolute right-1.5 top-1.5 z-10 rounded-full bg-gray-700 px-2 py-1 text-[0.62rem] font-bold text-white">
+                      Esgotado
+                    </span>
+                  ) : (
+                    <span className="absolute right-1.5 top-1.5 z-10 rounded-full bg-sale px-2 py-1 text-[0.62rem] font-bold text-sale-foreground">
+                      {product.discount}% OFF
+                    </span>
+                  )}
                   {product.imageUrl ? (
                     <img
                       src={product.imageUrl}
@@ -730,9 +741,10 @@ function Index() {
                     variant="outline"
                     size="sm"
                     className="h-auto min-h-9 w-full whitespace-normal px-2 py-2 text-[0.68rem] sm:text-xs"
+                    disabled={isProductOutOfStock(product)}
                     onClick={() => addToCart(product.id)}
                   >
-                    Adicionar ao carrinho
+                    {isProductOutOfStock(product) ? "Esgotado" : "Adicionar ao carrinho"}
                   </Button>
                 </div>
               </article>

@@ -748,16 +748,51 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
 
         {/* 5. Inventário */}
         <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-xs">
-          <h2 className="text-base font-bold text-gray-900 mb-2">Inventário</h2>
-          <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-            <span>{typeof formData.stock === "number" ? formData.stock : "∞ Infinito"}</span>
+          <h2 className="text-base font-bold text-gray-900 mb-1">Inventário</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Defina a quantidade disponível. Com 0 unidades, a loja exibe "Esgotado".
+          </p>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={typeof formData.stock !== "number"}
+                onChange={(e) =>
+                  setFormData({ ...formData, stock: e.target.checked ? "Infinito" : 0 })
+                }
+                className="h-4 w-4 rounded border-gray-300 text-[#0066d6] focus:ring-[#0066d6]"
+              />
+              <span className="text-xs font-medium text-gray-800">Estoque infinito</span>
+            </label>
+            {typeof formData.stock === "number" && (
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="stock-quantity"
+                  className="text-xs font-semibold text-gray-700"
+                >
+                  Quantidade
+                </label>
+                <input
+                  id="stock-quantity"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={formData.stock}
+                  onChange={(e) => {
+                    const val = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                    setFormData({ ...formData, stock: val });
+                  }}
+                  className="w-28 rounded-lg border border-gray-300 px-3 py-2 text-sm font-bold text-gray-900 focus:border-[#0066d6] focus:outline-hidden focus:ring-1 focus:ring-[#0066d6]"
+                />
+                <span className="text-xs text-gray-500">un.</span>
+              </div>
+            )}
           </div>
-          <button
-            type="button"
-            className="mt-2 text-xs font-semibold text-[#0066d6] hover:underline"
-          >
-            Ver histórico de estoque
-          </button>
+          {typeof formData.stock === "number" && formData.stock === 0 && (
+            <p className="mt-2 text-xs font-semibold text-red-600">
+              Estoque zerado — este produto aparecerá como "Esgotado" na loja.
+            </p>
+          )}
         </section>
 
         {/* 6. Códigos */}

@@ -33,6 +33,7 @@ import {
   findStoreProductBySlug,
   fetchStoreProductBySlugFromFirestore,
   getAllStoreProducts,
+  isProductOutOfStock,
 } from "@/data/all-store-products";
 import { useStoreSettings } from "@/hooks/use-store-settings";
 import { ProductFavoriteButton } from "@/components/products/product-favorite-button";
@@ -151,6 +152,10 @@ function ProductPage() {
       navigate({ to: "/conta", search: { tab: "entrar" } });
       return;
     }
+    if (isProductOutOfStock(product)) {
+      toast.error("Este produto está esgotado no momento.");
+      return;
+    }
     toast.success(`${quantity}x "${product.name}" adicionado ao carrinho!`);
   };
 
@@ -254,10 +259,16 @@ function ProductPage() {
             </span>
           </div>
           <div className="relative overflow-hidden rounded-lg border border-border bg-card shadow-card flex items-center justify-center">
-            {product.discount > 0 && (
-              <span className="absolute right-3 top-3 z-10 rounded-full bg-primary px-3 py-1 text-[0.7rem] font-bold text-primary-foreground">
-                {product.discount}% OFF
+            {isProductOutOfStock(product) ? (
+              <span className="absolute right-3 top-3 z-10 rounded-full bg-gray-700 px-3 py-1 text-[0.7rem] font-bold text-white">
+                Esgotado
               </span>
+            ) : (
+              product.discount > 0 && (
+                <span className="absolute right-3 top-3 z-10 rounded-full bg-primary px-3 py-1 text-[0.7rem] font-bold text-primary-foreground">
+                  {product.discount}% OFF
+                </span>
+              )
             )}
             {hasCustomImages && activeCustomImage ? (
               <img
@@ -339,8 +350,13 @@ function ProductPage() {
                 <Plus />
               </Button>
             </div>
-            <Button className="h-12 min-w-60 flex-1 rounded-md text-sm" onClick={handleAddToCart}>
-              <ShoppingCart /> Adicionar ao carrinho
+            <Button
+              className="h-12 min-w-60 flex-1 rounded-md text-sm"
+              onClick={handleAddToCart}
+              disabled={isProductOutOfStock(product)}
+            >
+              <ShoppingCart />{" "}
+              {isProductOutOfStock(product) ? "Produto esgotado" : "Adicionar ao carrinho"}
             </Button>
             <Button
               variant="outline"
@@ -540,7 +556,11 @@ function ProductPage() {
                 {[
                   { icon: PackageCheck, term: "Categoria", value: product.category },
                   { icon: Tag, term: "SKU", value: product.sku },
-                  { icon: ShieldCheck, term: "Disponibilidade", value: "Em estoque" },
+                  {
+                    icon: ShieldCheck,
+                    term: "Disponibilidade",
+                    value: isProductOutOfStock(product) ? "Esgotado" : "Em estoque",
+                  },
                   { icon: Truck, term: "Entrega", value: "Para todo o Brasil" },
                   { icon: Leaf, term: "Formas de pagamento", value: "Cartão, Pix e Boleto" },
                 ].map(({ icon: Icon, term, value }) => (
@@ -552,7 +572,7 @@ function ProductPage() {
                       <span className="truncate">{term}</span>
                     </dt>
                     <dd
-                      className={`shrink-0 font-semibold ${term === "Disponibilidade" ? "text-primary" : ""}`}
+                      className={`shrink-0 font-semibold ${value === "Esgotado" ? "text-red-600" : term === "Disponibilidade" ? "text-primary" : ""}`}
                     >
                       {value}
                     </dd>

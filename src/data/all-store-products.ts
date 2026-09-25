@@ -15,6 +15,13 @@ export function getBgPositionForIndex(index: number): string {
   return bgPositions[index % bgPositions.length] || "0%";
 }
 
+/**
+ * Produto esgotado = estoque numérico zerado. "Infinito" ou indefinido = disponível.
+ */
+export function isProductOutOfStock(product: { stock?: string | number }): boolean {
+  return product.stock === 0;
+}
+
 export function slugify(text: string): string {
   if (!text) return "";
   return text

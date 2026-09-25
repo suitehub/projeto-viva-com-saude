@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useFavorites } from "@/data/favorites";
 import { useCurrentUser } from "@/data/user-auth";
-import { getAllStoreProducts, StoreProduct } from "@/data/all-store-products";
+import { getAllStoreProducts, StoreProduct, isProductOutOfStock } from "@/data/all-store-products";
 import productsImage from "@/assets/viva-products.jpg";
 
 function formatPrice(value: number) {
@@ -190,10 +190,11 @@ export function FavoritesSheet({ open, onOpenChange, onAddToCart }: FavoritesShe
                       <Button
                         size="sm"
                         onClick={() => handleProductAddToCart(product)}
+                        disabled={isProductOutOfStock(product)}
                         className="h-7 text-[11px] px-2.5 font-medium ml-auto"
                       >
                         <ShoppingCart className="mr-1 h-3 w-3" />
-                        Adicionar
+                        {isProductOutOfStock(product) ? "Esgotado" : "Adicionar"}
                       </Button>
                     </div>
                   </div>

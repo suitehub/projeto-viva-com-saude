@@ -22,7 +22,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { formatPrice, Product } from "@/data/products";
-import { getAllStoreProducts, useStoreProducts, normalizeSearchText } from "@/data/all-store-products";
+import { getAllStoreProducts, useStoreProducts, normalizeSearchText, isProductOutOfStock } from "@/data/all-store-products";
 import { ProductFavoriteButton } from "@/components/products/product-favorite-button";
 import { useCurrentUser } from "@/data/user-auth";
 import { toast } from "sonner";
@@ -92,6 +92,11 @@ export function AllProductsPage() {
     if (!isLoggedIn) {
       toast.info("Faça login para adicionar produtos ao carrinho!");
       navigate({ to: "/conta", search: { tab: "entrar" } });
+      return;
+    }
+    const target = allProducts.find((p) => String(p.id) === String(id));
+    if (target && isProductOutOfStock(target)) {
+      toast.error("Este produto está esgotado no momento.");
       return;
     }
     setCart((curr) => ({ ...curr, [id]: (curr[id] ?? 0) + 1 }));
@@ -497,10 +502,16 @@ export function AllProductsPage() {
                   >
                     <div className="relative overflow-hidden rounded-md bg-muted">
                       <ProductFavoriteButton productId={product.id} productName={product.name} />
-                      {product.discount > 0 && (
-                        <span className="absolute right-2 top-2 z-10 rounded-full bg-sale px-2.5 py-1 text-[0.65rem] font-bold text-sale-foreground shadow-xs">
-                          {product.discount}% OFF
+                      {isProductOutOfStock(product) ? (
+                        <span className="absolute right-2 top-2 z-10 rounded-full bg-gray-700 px-2.5 py-1 text-[0.65rem] font-bold text-white shadow-xs">
+                          Esgotado
                         </span>
+                      ) : (
+                        product.discount > 0 && (
+                          <span className="absolute right-2 top-2 z-10 rounded-full bg-sale px-2.5 py-1 text-[0.65rem] font-bold text-sale-foreground shadow-xs">
+                            {product.discount}% OFF
+                          </span>
+                        )
                       )}
                       {product.imageUrl ? (
                         <img
@@ -559,10 +570,11 @@ export function AllProductsPage() {
                         variant="outline"
                         size="sm"
                         className="h-9 w-full whitespace-normal px-2 py-1.5 text-xs font-semibold"
+                        disabled={isProductOutOfStock(product)}
                         onClick={() => addToCart(product.id)}
                       >
                         <ShoppingCart className="h-3.5 w-3.5 mr-1" />
-                        Adicionar
+                        {isProductOutOfStock(product) ? "Esgotado" : "Adicionar"}
                       </Button>
                     </div>
                   </article>
