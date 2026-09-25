@@ -47,6 +47,10 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [activeCategoryInput, setActiveCategoryInput] = useState("");
+  // Produto novo (sem nome ainda): URL acompanha o nome digitado.
+  // Em produto existente a URL não muda sozinha para não quebrar links antigos.
+  const [isNewProduct] = useState(() => !product.name?.trim());
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showInfoBanner, setShowInfoBanner] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -475,7 +479,17 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => {
+                  const nextName = e.target.value;
+                  setFormData((prev) => ({
+                    ...prev,
+                    name: nextName,
+                    urlSlug:
+                      isNewProduct && !slugManuallyEdited
+                        ? slugify(nextName) || prev.urlSlug
+                        : prev.urlSlug,
+                  }));
+                }}
                 className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm font-medium text-gray-900 focus:border-[#0066d6] focus:outline-hidden focus:ring-1 focus:ring-[#0066d6]"
               />
             </div>
@@ -1184,13 +1198,18 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
               <input
                 type="text"
                 value={formData.urlSlug}
-                onChange={(e) => setFormData({ ...formData, urlSlug: slugify(e.target.value) })}
+                onChange={(e) => {
+                  setSlugManuallyEdited(true);
+                  setFormData({ ...formData, urlSlug: slugify(e.target.value) });
+                }}
                 placeholder="nome-do-produto"
                 className="w-full bg-transparent px-1 font-mono text-xs text-gray-900 focus:outline-hidden"
               />
             </div>
             <p className="mt-1 text-[0.68rem] text-gray-500">
-              O produto é acessível na loja através deste endereço amigável.
+              {isNewProduct
+                ? "Gerada automaticamente a partir do nome — edite se quiser personalizar."
+                : "Cuidado: alterar a URL quebra links antigos e compartilhamentos deste produto."}
             </p>
           </div>
         </section>
