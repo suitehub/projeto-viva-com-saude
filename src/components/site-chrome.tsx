@@ -87,6 +87,10 @@ export function SiteHeader({
 }) {
   const navigate = useNavigate();
   const { isLoggedIn } = useCurrentUser();
+  const settings = useStoreSettings();
+  const whatsappUrl = `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(
+    settings.whatsappDefaultMessage,
+  )}`;
   const [headerQuery, setHeaderQuery] = useState("");
 
   // Enter na busca do cabeçalho leva para /produtos com o termo aplicado
@@ -127,12 +131,14 @@ export function SiteHeader({
           <Link to="/produtos" className="nav-link">
             Categorias
           </Link>
-          <Link to="/" hash="sobre" className="nav-link">
-            Sobre
-          </Link>
-          <Link to="/" hash="contato" className="nav-link">
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="nav-link"
+          >
             Contato
-          </Link>
+          </a>
         </nav>
         <div className="flex items-center justify-end gap-1 sm:gap-2">
           <form onSubmit={goToSearch} className="relative hidden w-64 xl:block" role="search">
@@ -193,20 +199,14 @@ export function SiteHeader({
                 >
                   Categorias
                 </Link>
-                <Link
-                  to="/"
-                  hash="sobre"
-                  className="border-b border-border py-4 text-base font-semibold"
-                >
-                  Sobre
-                </Link>
-                <Link
-                  to="/"
-                  hash="contato"
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noreferrer"
                   className="border-b border-border py-4 text-base font-semibold"
                 >
                   Contato
-                </Link>
+                </a>
                 <Link
                   to="/conta"
                   className="border-b border-border py-4 text-base font-semibold text-primary"

@@ -4,7 +4,6 @@ import {
   ArrowRight,
   BadgeCheck,
   ChevronDown,
-  CircleUserRound,
   CreditCard,
   Flower2,
   Heart,
@@ -347,10 +346,12 @@ function Index() {
             <a className="nav-link inline-flex items-center gap-1" href="#categorias">
               Categorias <ChevronDown className="h-3 w-3" />
             </a>
-            <a className="nav-link" href="#sobre">
-              Sobre
-            </a>
-            <a className="nav-link" href="#contato">
+            <a
+              className="nav-link"
+              href={whatsappDirectUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
               Contato
             </a>
           </nav>
@@ -520,8 +521,6 @@ function Index() {
                     ["Início", "#inicio"],
                     ["Produtos", "#produtos"],
                     ["Categorias", "#categorias"],
-                    ["Sobre", "#sobre"],
-                    ["Contato", "#contato"],
                   ].map(([label, href]) => (
                     <a
                       key={href}
@@ -532,6 +531,15 @@ function Index() {
                       {label}
                     </a>
                   ))}
+                  <a
+                    href={whatsappDirectUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => setMenuOpen(false)}
+                    className="border-b border-border py-4 text-base font-semibold"
+                  >
+                    Contato
+                  </a>
                   <Link
                     to="/conta"
                     onClick={() => setMenuOpen(false)}
@@ -836,45 +844,6 @@ function Index() {
         </div>
       </section>
 
-      <section id="sobre" className="relative overflow-hidden py-14">
-        <div className="leaf-decoration left-0" aria-hidden="true">
-          <Leaf />
-        </div>
-        <div className="leaf-decoration right-0 scale-x-[-1]" aria-hidden="true">
-          <Leaf />
-        </div>
-        <div className="mx-auto grid max-w-6xl gap-8 px-5 lg:grid-cols-[1.4fr_1fr] lg:items-center">
-          <div>
-            <h2 className="font-display text-3xl sm:text-4xl">
-              Por que escolher o Projeto Viva com Saúde?
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              Há anos oferecendo produtos naturais e fitoterápicos com qualidade, segurança e
-              confiança. Nosso compromisso é com a sua saúde e bem-estar.
-            </p>
-            <Button asChild className="mt-6 rounded-full">
-              <a href="#contato">
-                Conheça nossa história <ArrowRight />
-              </a>
-            </Button>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              { icon: Leaf, label: "Saúde Natural" },
-              { icon: CircleUserRound, label: "Clientes Satisfeitos" },
-              { icon: BadgeCheck, label: "Qualidade Comprovada" },
-            ].map(({ icon: Icon, label }) => (
-              <div key={label} className="text-center">
-                <span className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-border bg-muted text-primary">
-                  <Icon className="h-7 w-7" />
-                </span>
-                <span className="mt-2 block text-xs font-semibold">{label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Formulário de Mensagem / Contato vinculado à área de Mensagens do Administrador */}
       <section id="contato-formulario" className="mx-auto max-w-4xl px-4 pb-12 lg:px-8">
         <ContactMessageForm />
@@ -965,7 +934,6 @@ function Index() {
               "Início",
               "Produtos",
               "Categorias",
-              "Sobre nós",
               { label: "Contato / Enviar mensagem", href: "/#contato-formulario" },
               { label: "Painel do Administrador", href: "/admin" },
             ]}
@@ -1011,12 +979,6 @@ function Index() {
           </div>
           <div>
             <h3 className="text-sm font-bold">Compra protegida</h3>
-            <div className="mt-4 flex gap-2">
-              <span className="payment-mark">VISA</span>
-              <span className="payment-mark">MC</span>
-              <span className="payment-mark">ELO</span>
-              <span className="payment-mark">PIX</span>
-            </div>
             <div className="mt-4 flex items-center gap-2 rounded-md bg-brand-soft p-3 text-primary">
               <ShieldCheck className="h-8 w-8" />
               <span className="text-[0.65rem] font-bold uppercase">
