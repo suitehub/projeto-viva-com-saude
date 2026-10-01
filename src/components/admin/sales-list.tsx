@@ -21,6 +21,11 @@ import {
 } from "lucide-react";
 import {
   SaleOrder,
+  FulfillmentStatus,
+  FULFILLMENT_STAGES,
+  FULFILLMENT_LABELS,
+  getFulfillment,
+  fulfillmentToStatusFilter,
   getCachedOrders,
   subscribeAdminOrders,
   saveAdminOrderToFirestore,
@@ -77,6 +82,40 @@ export function SalesList() {
       .catch((err) => {
         console.error("Erro ao atualizar envio no Firestore:", err);
         toast.error("Erro ao atualizar envio no Firestore.");
+      });
+  };
+
+  /**
+   * Avança a etapa de atendimento (recebido → preparando → enviado → entregue),
+   * mantendo os campos legados sincronizados. `trackingCode` só no enviado.
+   */
+  const handleUpdateFulfillment = (
+    orderId: string,
+    stage: FulfillmentStatus,
+    trackingCode?: string,
+  ) => {
+    const updates: Partial<SaleOrder> = {
+      fulfillmentStatus: stage,
+      statusFilter: fulfillmentToStatusFilter(stage),
+      shippingStatus: stage === "enviado" ? "Enviada" : stage === "cancelado" ? "Cancelada" : "Pendente",
+    };
+    if (trackingCode !== undefined) {
+      updates.trackingCode = trackingCode;
+    }
+    const previous = sales.find((s) => s.id === orderId);
+    updateAdminOrderStatusInFirestore(orderId, updates)
+      .then(() => {
+        toast.success(`Pedido atualizado para "${FULFILLMENT_LABELS[stage]}"!`);
+        if (viewOrderModal && viewOrderModal.id === orderId) {
+          setViewOrderModal({ ...viewOrderModal, ...updates });
+        }
+      })
+      .catch((err) => {
+        console.error("Erro ao atualizar etapa no Firestore:", err);
+        if (previous) {
+          setViewOrderModal((current) => (current && current.id === orderId ? previous : current));
+        }
+        toast.error("Erro ao atualizar etapa no Firestore.");
       });
   };
 
@@ -454,6 +493,11 @@ export function SalesList() {
                               <span>$</span>
                               <span>Recebido</span>
                             </span>
+                          ) : sale.paymentStatus === "Pendente" ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                              <span>$</span>
+                              <span>Pendente</span>
+                            </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 rounded-full bg-[#fce8e6] px-2 py-0.5 text-[11px] font-semibold text-[#c5221f]">
                               <span>$</span>
@@ -464,15 +508,35 @@ export function SalesList() {
                         </div>
                       </td>
 
-                      {/* Envio */}
+                      {/* Envio / Etapa de atendimento */}
                       <td className="py-3 px-4 whitespace-nowrap">
-                        <div className="space-y-0.5">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#e8f7ee] px-2 py-0.5 text-[11px] font-semibold text-[#137333]">
-                            <Truck className="h-3 w-3" />
-                            <span>Enviada</span>
-                          </span>
-                          <p className="text-[11px] text-gray-500">{sale.shippingCarrier}</p>
-                        </div>
+                        {(() => {
+                          const stage = getFulfillment(sale);
+                          const styles: Record<typeof stage, string> = {
+                            recebido: "bg-blue-100 text-[#0066d6]",
+                            preparando: "bg-amber-100 text-amber-800",
+                            enviado: "bg-violet-100 text-violet-800",
+                            entregue: "bg-[#e8f7ee] text-[#137333]",
+                            cancelado: "bg-[#fce8e6] text-[#c5221f]",
+                          };
+                          return (
+                            <div className="space-y-0.5">
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${styles[stage]}`}
+                              >
+                                <Truck className="h-3 w-3" />
+                                <span>{FULFILLMENT_LABELS[stage]}</span>
+                              </span>
+                              {sale.trackingCode ? (
+                                <p className="font-mono text-[11px] font-semibold text-[#0066d6]">
+                                  {sale.trackingCode}
+                                </p>
+                              ) : (
+                                <p className="text-[11px] text-gray-500">{sale.shippingCarrier}</p>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Actions Menu */}
@@ -539,6 +603,93 @@ export function SalesList() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Etapa de atendimento */}
+              <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                <p className="font-semibold text-gray-700 mb-2">Etapa do pedido</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {FULFILLMENT_STAGES.map((stage, index) => {
+                    const current = getFulfillment(viewOrderModal);
+                    const currentIndex = FULFILLMENT_STAGES.indexOf(current);
+                    const reached = current !== "cancelado" && index <= currentIndex;
+                    return (
+                      <button
+                        key={stage}
+                        type="button"
+                        onClick={() =>
+                          handleUpdateFulfillment(
+                            viewOrderModal.id,
+                            stage,
+                            stage === "enviado" ? viewOrderModal.trackingCode || "" : undefined,
+                          )
+                        }
+                        className={`rounded-lg border px-2 py-1.5 text-[11px] font-bold transition-colors ${
+                          current === stage
+                            ? "border-[#0066d6] bg-[#0066d6] text-white shadow-xs"
+                            : reached
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
+                        }`}
+                      >
+                        {index + 1}. {FULFILLMENT_LABELS[stage]}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateFulfillment(viewOrderModal.id, "cancelado")}
+                    className={`rounded-lg border px-2 py-1.5 text-[11px] font-bold transition-colors ${
+                      getFulfillment(viewOrderModal) === "cancelado"
+                        ? "border-red-600 bg-red-600 text-white"
+                        : "border-gray-200 bg-white text-red-600 hover:bg-red-50"
+                    }`}
+                  >
+                    Cancelar pedido
+                  </button>
+                  {getFulfillment(viewOrderModal) === "cancelado" && (
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateFulfillment(viewOrderModal.id, "recebido")}
+                      className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[11px] font-bold text-gray-600 hover:bg-gray-50"
+                    >
+                      Reabrir
+                    </button>
+                  )}
+                </div>
+                {getFulfillment(viewOrderModal) === "enviado" && (
+                  <div className="mt-2">
+                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                      Código de rastreio
+                    </label>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={viewOrderModal.trackingCode || ""}
+                        onChange={(e) =>
+                          setViewOrderModal({ ...viewOrderModal, trackingCode: e.target.value })
+                        }
+                        placeholder="Ex: BR123456789BR"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 font-mono text-xs text-gray-900 focus:border-[#0066d6] focus:outline-hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleUpdateFulfillment(
+                            viewOrderModal.id,
+                            "enviado",
+                            viewOrderModal.trackingCode || "",
+                          )
+                        }
+                        className="shrink-0 rounded-lg bg-[#0066d6] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#0052ad]"
+                      >
+                        Salvar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Payment & Shipping Summary with Firestore updates */}

@@ -171,8 +171,10 @@ service cloud.firestore {
     }
 
     // --- 8. Sales / Orders Collection ---
+    // Leitura: admin OU o próprio comprador (e-mail do Auth == e-mail do pedido).
+    // Escrita: qualquer um cria (checkout); só admin altera/exclui.
     match /orders/{orderId} {
-      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow read: if isAdmin() || (isSignedIn() && resource.data.email == request.auth.token.email.lower());
       allow create: if isValidId(orderId) && isValidOrder(incoming());
       allow update, delete: if isAdmin() && isValidId(orderId);
     }

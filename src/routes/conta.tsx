@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatPhoneNumber } from "@/components/auth/edit-profile-modal";
 import { FavoritesSheet } from "@/components/products/favorites-sheet";
+import { UserOrders } from "@/components/auth/user-orders";
 import { useFavorites } from "@/data/favorites";
 import {
   useCurrentUser,
@@ -665,6 +666,9 @@ function AccountPage() {
                   </div>
                 </div>
               )}
+
+              {/* Minhas compras — status conforme o admin */}
+              {!isEditingProfile && <UserOrders email={user.email} />}
             </div>
           ) : (
             /* Auth Box (Tabs: Entrar / Registrar) */

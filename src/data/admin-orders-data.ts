@@ -6,6 +6,7 @@ import {
   updateDoc,
   onSnapshot,
   query,
+  where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { cleanFirestorePayload } from "@/lib/firestore-utils";
@@ -33,8 +34,54 @@ export interface SaleOrder {
   shippingCarrier: string;
   trackingCode?: string;
   statusFilter: "arquivar" | "cobrar" | "embalar" | "enviar" | "retirar";
+  /** Etapa de atendimento do pedido (novo pipeline). */
+  fulfillmentStatus?: FulfillmentStatus;
   userId?: string;
   notes?: string;
+}
+
+/** Pipeline de atendimento: recebido → preparando → enviado → entregue. */
+export type FulfillmentStatus = "recebido" | "preparando" | "enviado" | "entregue" | "cancelado";
+
+export const FULFILLMENT_STAGES: FulfillmentStatus[] = [
+  "recebido",
+  "preparando",
+  "enviado",
+  "entregue",
+];
+
+export const FULFILLMENT_LABELS: Record<FulfillmentStatus, string> = {
+  recebido: "Pedido recebido",
+  preparando: "Preparando para envio",
+  enviado: "Enviado",
+  entregue: "Entregue",
+  cancelado: "Cancelado",
+};
+
+/**
+ * Etapa efetiva do pedido (compatível com pedidos antigos sem o campo).
+ */
+export function getFulfillment(order: Pick<SaleOrder, "fulfillmentStatus" | "shippingStatus" | "paymentStatus">): FulfillmentStatus {
+  if (order.fulfillmentStatus) return order.fulfillmentStatus;
+  if (order.paymentStatus === "Recusado") return "cancelado";
+  if (order.shippingStatus === "Enviada") return "enviado";
+  return "recebido";
+}
+
+/** Filtro da aba de vendas correspondente a cada etapa. */
+export function fulfillmentToStatusFilter(
+  stage: FulfillmentStatus,
+): SaleOrder["statusFilter"] {
+  switch (stage) {
+    case "recebido":
+    case "preparando":
+      return "embalar";
+    case "enviado":
+      return "enviar";
+    case "entregue":
+    case "cancelado":
+      return "arquivar";
+  }
 }
 
 export interface AbandonedCartItem {
@@ -182,6 +229,38 @@ export async function deleteAdminOrderFromFirestore(orderId: string): Promise<vo
   const current = getCachedOrders();
   const updated = current.filter((o) => o.id !== orderId);
   cacheOrders(updated);
+}
+
+/**
+ * Escuta em tempo real os pedidos do próprio cliente (por e-mail).
+ * Usado em "Minhas compras" — as regras liberam leitura do dono pelo e-mail.
+ */
+export function subscribeUserOrders(
+  email: string,
+  callback: (orders: SaleOrder[]) => void,
+): () => void {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) {
+    callback([]);
+    return () => {};
+  }
+  const q = query(collection(db, "orders"), where("email", "==", normalized));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const loaded: SaleOrder[] = [];
+      snapshot.forEach((docSnap) => {
+        loaded.push({ ...(docSnap.data() as SaleOrder), id: docSnap.id });
+      });
+      loaded.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+      callback(loaded);
+    },
+    (err) => {
+      console.warn("Aviso ao carregar compras do cliente:", err);
+      callback([]);
+    },
+  );
 }
 
 // -------------------------------------------------------------
