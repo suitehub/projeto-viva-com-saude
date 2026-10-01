@@ -28,7 +28,7 @@ import {
   isValidEmail,
   useCart,
 } from "@/data/cart";
-import { toast } from "sonner";
+import { createMercadoPagoPreference } from "@/lib/backend";
 import productsImage from "@/assets/viva-products.jpg";
 
 export const Route = createFileRoute("/checkout")({
@@ -80,6 +80,7 @@ function CheckoutPage() {
   const [state, setState] = useState("");
   const [freightId, setFreightId] = useState(FREIGHT_OPTIONS[0].id);
   const [formError, setFormError] = useState("");
+  const [isPaying, setIsPaying] = useState(false);
 
   const freight = useMemo(
     () => FREIGHT_OPTIONS.find((f) => f.id === freightId) || FREIGHT_OPTIONS[0],
@@ -145,9 +146,26 @@ function CheckoutPage() {
       total,
     };
 
-    // Fase 2: enviar `payload` para POST /api/criar-preferencia e redirecionar ao init_point.
-    void payload;
-    toast.info("Quase lá! O pagamento online entra na próxima etapa.");
+    // Cria a preferência do Checkout Pro e redireciona ao Mercado Pago.
+    setIsPaying(true);
+    try {
+      const paymentUrl = await createMercadoPagoPreference({
+        items: payload.items.map((item) => {
+          const full = items.find((i) => String(i.product.id) === item.id);
+          return { ...item, imageUrl: full?.product.imageUrl };
+        }),
+        freightPrice: payload.freightPrice,
+        freightLabel: freight.label,
+        email: payload.customer.email,
+      });
+      window.location.href = paymentUrl;
+    } catch (err) {
+      console.error("Erro ao iniciar pagamento:", err);
+      setFormError(
+        err instanceof Error ? err.message : "Não foi possível iniciar o pagamento.",
+      );
+      setIsPaying(false);
+    }
   };
 
   return (
@@ -444,8 +462,8 @@ function CheckoutPage() {
                   <dd className="font-extrabold text-primary">{formatPrice(total)}</dd>
                 </div>
               </dl>
-              <Button type="submit" className="mt-5 h-12 w-full text-sm font-bold">
-                Finalizar compra
+              <Button type="submit" className="mt-5 h-12 w-full text-sm font-bold" disabled={isPaying}>
+                {isPaying ? "Abrindo pagamento..." : "Finalizar compra"}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
