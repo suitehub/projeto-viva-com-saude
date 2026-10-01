@@ -35,6 +35,7 @@ import logoImage from "@/assets/logoprojeto.png";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/data/products";
 import { getAllStoreProducts, useStoreProducts, normalizeSearchText, isProductOutOfStock } from "@/data/all-store-products";
+import { useCart } from "@/data/cart";
 import { Input } from "@/components/ui/input";
 import { ContactMessageForm } from "@/components/contact-message-form";
 import { UserAccountDropdown } from "@/components/auth/user-account-dropdown";

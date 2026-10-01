@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/sheet";
 import { formatPrice, Product } from "@/data/products";
 import { getAllStoreProducts, useStoreProducts, normalizeSearchText, isProductOutOfStock } from "@/data/all-store-products";
+import { useCart } from "@/data/cart";
 import { ProductFavoriteButton } from "@/components/products/product-favorite-button";
 import { useCurrentUser } from "@/data/user-auth";
 import { toast } from "sonner";
