@@ -45,6 +45,7 @@ import {
   loginWithGoogle,
   resetPassword,
 } from "@/data/user-auth";
+import { useCart } from "@/data/cart";
 import { toast } from "sonner";
 
 type AuthTab = "entrar" | "registrar" | "perfil";
@@ -73,6 +74,7 @@ export const Route = createFileRoute("/conta")({
 function AccountPage() {
   const search = Route.useSearch();
   const { user, isLoggedIn } = useCurrentUser();
+  const cart = useCart();
   const { favoriteCount } = useFavorites();
   const [favoritesSheetOpen, setFavoritesSheetOpen] = useState(false);
 
@@ -333,7 +335,7 @@ function AccountPage() {
   return (
     <div className="flex min-h-screen flex-col bg-[#fafafc] text-foreground">
       <TopBar />
-      <SiteHeader cartCount={0} />
+      <SiteHeader cartCount={cart.count} />
 
       <main className="flex-1">
         {/* Breadcrumbs */}

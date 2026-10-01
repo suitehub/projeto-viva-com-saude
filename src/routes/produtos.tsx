@@ -84,11 +84,11 @@ export function AllProductsPage() {
     }
   }, [searchParams.categoria, searchParams.busca]);
 
-  // Cart state
-  const [cart, setCart] = useState<Record<number, number>>({});
-  const cartCount = Object.values(cart).reduce((sum, q) => sum + q, 0);
+  // Carrinho compartilhado (persiste entre páginas)
+  const cart = useCart(allProducts);
+  const cartCount = cart.count;
 
-  const addToCart = (id: number) => {
+  const addToCart = (id: number | string) => {
     if (!isLoggedIn) {
       toast.info("Faça login para adicionar produtos ao carrinho!");
       navigate({ to: "/conta", search: { tab: "entrar" } });
@@ -99,7 +99,7 @@ export function AllProductsPage() {
       toast.error("Este produto está esgotado no momento.");
       return;
     }
-    setCart((curr) => ({ ...curr, [id]: (curr[id] ?? 0) + 1 }));
+    cart.add(id);
     toast.success("Produto adicionado ao carrinho!");
   };
 

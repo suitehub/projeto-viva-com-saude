@@ -9,7 +9,6 @@ import {
   Link2,
   Maximize2,
   Menu,
-  MessageCircle,
   Minus,
   PackageCheck,
   Plus,
@@ -35,6 +34,7 @@ import {
   getAllStoreProducts,
   isProductOutOfStock,
 } from "@/data/all-store-products";
+import { useCart } from "@/data/cart";
 import { useStoreSettings } from "@/hooks/use-store-settings";
 import { ProductFavoriteButton } from "@/components/products/product-favorite-button";
 import { useFavorites } from "@/data/favorites";
@@ -116,6 +116,7 @@ function ProductPage() {
   const settings = useStoreSettings();
   const [activeImage, setActiveImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const cart = useCart();
 
   useEffect(() => {
     setProduct(initialProduct);
@@ -156,7 +157,22 @@ function ProductPage() {
       toast.error("Este produto está esgotado no momento.");
       return;
     }
+    cart.add(product.id, quantity);
     toast.success(`${quantity}x "${product.name}" adicionado ao carrinho!`);
+  };
+
+  const handleBuyNow = () => {
+    if (!isLoggedIn) {
+      toast.info("Faça login para comprar!");
+      navigate({ to: "/conta", search: { tab: "entrar" } });
+      return;
+    }
+    if (isProductOutOfStock(product)) {
+      toast.error("Este produto está esgotado no momento.");
+      return;
+    }
+    cart.add(product.id, quantity);
+    navigate({ to: "/checkout" });
   };
 
   const handleToggleFavorite = () => {
@@ -190,7 +206,7 @@ function ProductPage() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-background text-foreground">
       <TopBar />
-      <SiteHeader cartCount={0} />
+      <SiteHeader cartCount={cart.count} />
 
       <nav aria-label="Você está em" className="mx-auto max-w-7xl px-4 pb-2 pt-5 lg:px-8">
         <ol className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -371,15 +387,14 @@ function ProductPage() {
           </div>
 
           <div className="mt-3">
-            <a
-              href={`https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(`Olá! Gostaria de comprar ou tirar dúvidas sobre o produto *${product.name}* (Quantidade: ${quantity}) no valor de ${formatPrice(product.price * quantity)} pelo WhatsApp.`)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-whatsapp px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
+            <Button
+              className="h-12 w-full text-sm"
+              onClick={handleBuyNow}
+              disabled={isProductOutOfStock(product)}
             >
-              <MessageCircle className="h-5 w-5" />
-              Comprar ou tirar dúvidas pelo WhatsApp
-            </a>
+              {isProductOutOfStock(product) ? "Produto esgotado" : "Comprar agora"}
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
           </div>
 
           <div className="mt-6 grid gap-4 border-t border-border pt-6 sm:grid-cols-3">

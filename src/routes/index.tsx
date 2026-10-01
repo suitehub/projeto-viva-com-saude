@@ -149,8 +149,10 @@ function Index() {
     }, HERO_SLIDE_MS);
     return () => clearInterval(timer);
   }, []);
-  const [cart, setCart] = useState<Record<number, number>>({});
   const [cartOpen, setCartOpen] = useState(false);
+  const cart = useCart(storeProducts);
+  const cartCount = cart.count;
+  const subtotal = cart.subtotal;
   const [menuOpen, setMenuOpen] = useState(false);
   const [newsletterSent, setNewsletterSent] = useState(false);
 
@@ -185,13 +187,7 @@ function Index() {
     return filteredProducts.slice(0, 5);
   }, [filteredProducts, category, query, storeProducts]);
 
-  const cartCount = Object.values(cart).reduce((sum, quantity) => sum + quantity, 0);
-  const subtotal = storeProducts.reduce(
-    (sum, product) => sum + product.price * (cart[product.id] ?? 0),
-    0,
-  );
-
-  const addToCart = (id: number) => {
+  const addToCart = (id: number | string) => {
     if (!isLoggedIn) {
       toast.info("Faça login para adicionar produtos ao carrinho!");
       navigate({ to: "/conta", search: { tab: "entrar" } });
@@ -202,21 +198,14 @@ function Index() {
       toast.error("Este produto está esgotado no momento.");
       return;
     }
-    setCart((current) => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
+    cart.add(id);
     toast.success("Produto adicionado ao carrinho!");
     setCartOpen(true);
   };
 
-  const updateQuantity = (id: number, delta: number) => {
-    setCart((current) => {
-      const next = (current[id] ?? 0) + delta;
-      if (next <= 0) {
-        const copy = { ...current };
-        delete copy[id];
-        return copy;
-      }
-      return { ...current, [id]: next };
-    });
+  const updateQuantity = (id: number | string, delta: number) => {
+    const current = cart.cart[String(id)] ?? 0;
+    cart.setQty(id, current + delta);
   };
 
   const [newsletterEmail, setNewsletterEmail] = useState("");
@@ -266,17 +255,9 @@ function Index() {
     setNewsletterSent(true);
   };
 
-  const handleFinalizarCompraWhatsApp = () => {
-    const selectedItems = storeProducts.filter((product) => cart[product.id]);
-    if (!selectedItems.length) return;
-    const itemsList = selectedItems
-      .map((p) => `• ${p.name} (${cart[p.id]}x) - ${formatPrice(p.price * cart[p.id])}`)
-      .join("\n");
-    const text = `Olá! Gostaria de finalizar meu pedido pelo WhatsApp:\n\n${itemsList}\n\n*Total: ${formatPrice(subtotal)}*`;
-    window.open(
-      `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(text)}`,
-      "_blank",
-    );
+  const goToCheckout = () => {
+    setCartOpen(false);
+    navigate({ to: "/checkout" });
   };
 
   const whatsappDirectUrl = `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(
@@ -427,7 +408,7 @@ function Index() {
                 </SheetHeader>
                 <div className="flex-1 space-y-4 overflow-y-auto py-5">
                   {storeProducts
-                    .filter((product) => cart[product.id])
+                    .filter((product) => cart.cart[String(product.id)])
                     .map((product) => (
                       <div
                         key={product.id}
@@ -465,7 +446,7 @@ function Index() {
                               <Minus />
                             </Button>
                             <span className="w-7 text-center text-sm font-semibold">
-                              {cart[product.id]}
+                              {cart.cart[String(product.id)]}
                             </span>
                             <Button
                               variant="outline"
@@ -487,12 +468,11 @@ function Index() {
                     <strong className="text-xl">{formatPrice(subtotal)}</strong>
                   </div>
                   <Button
-                    className="h-12 w-full bg-whatsapp text-primary-foreground hover:bg-whatsapp/90 font-semibold gap-2"
+                    className="h-12 w-full font-semibold gap-2"
                     disabled={!cartCount}
-                    onClick={handleFinalizarCompraWhatsApp}
+                    onClick={goToCheckout}
                   >
-                    <MessageCircle className="h-5 w-5" />
-                    Finalizar pedido pelo WhatsApp
+                    Finalizar compra
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>

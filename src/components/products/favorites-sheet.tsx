@@ -22,7 +22,7 @@ function formatPrice(value: number) {
 interface FavoritesSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddToCart?: (productId: number) => void;
+  onAddToCart?: (productId: number | string) => void;
 }
 
 export function FavoritesSheet({ open, onOpenChange, onAddToCart }: FavoritesSheetProps) {
@@ -236,7 +236,7 @@ export function FavoritesHeaderButton({
   onAddToCart,
 }: {
   className?: string;
-  onAddToCart?: (productId: number) => void;
+  onAddToCart?: (productId: number | string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const { favoriteCount, isLoggedIn } = useFavorites();
