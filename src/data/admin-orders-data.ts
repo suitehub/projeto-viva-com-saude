@@ -238,6 +238,7 @@ export async function deleteAdminOrderFromFirestore(orderId: string): Promise<vo
 export function subscribeUserOrders(
   email: string,
   callback: (orders: SaleOrder[]) => void,
+  onError?: (err: unknown) => void,
 ): () => void {
   const normalized = email.trim().toLowerCase();
   if (!normalized) {
@@ -258,6 +259,7 @@ export function subscribeUserOrders(
     },
     (err) => {
       console.warn("Aviso ao carregar compras do cliente:", err);
+      onError?.(err);
       callback([]);
     },
   );

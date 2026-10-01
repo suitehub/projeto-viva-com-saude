@@ -24,18 +24,33 @@ const STAGE_STYLES: Record<string, string> = {
 export function UserOrders({ email }: { email: string }) {
   const [orders, setOrders] = useState<SaleOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    const unsubscribe = subscribeUserOrders(email, (loaded) => {
-      setOrders(loaded);
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    setLoadError(false);
+    let cancelled = false;
+    const unsubscribe = subscribeUserOrders(
+      email,
+      (loaded) => {
+        if (cancelled) return;
+        setOrders(loaded);
+        setLoading(false);
+      },
+      () => {
+        if (cancelled) return;
+        setLoadError(true);
+        setLoading(false);
+      },
+    );
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [email]);
 
   return (
-    <div className="rounded-2xl border border-border bg-white p-6 shadow-xs sm:p-8">
+    <div id="minhas-compras" className="rounded-2xl border border-border bg-white p-6 shadow-xs sm:p-8 scroll-mt-24">
       <div className="flex items-center justify-between border-b border-gray-100 pb-3">
         <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-900">
           <Package className="h-5 w-5 text-primary" />
@@ -50,6 +65,11 @@ export function UserOrders({ email }: { email: string }) {
 
       {loading ? (
         <p className="py-6 text-center text-xs text-gray-500">Carregando seus pedidos...</p>
+      ) : loadError ? (
+        <p className="py-6 text-center text-xs text-red-600">
+          Não consegui carregar seus pedidos (sem permissão de leitura). Confira se as regras do
+          Firestore foram publicadas no banco correto.
+        </p>
       ) : orders.length === 0 ? (
         <p className="py-6 text-center text-xs text-gray-500">
           Você ainda não tem pedidos. Quando comprar, o status aparece aqui.

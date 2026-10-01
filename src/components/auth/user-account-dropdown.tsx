@@ -6,6 +6,7 @@ import {
   UserPlus,
   User,
   Mail,
+  Package,
   Phone,
   Edit3,
   LogOut,
@@ -134,6 +135,17 @@ export function UserAccountDropdown({ className, sideOffset = 8 }: UserAccountDr
                 >
                   <ShoppingBag className="h-4 w-4 text-gray-500" />
                   <span>Ver Catálogo da Loja</span>
+                </Link>
+
+                <Link
+                  to="/conta"
+                  search={{ tab: "perfil" }}
+                  hash="minhas-compras"
+                  onClick={() => setOpen(false)}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 transition-colors text-left"
+                >
+                  <Package className="h-4 w-4 text-gray-500" />
+                  <span>Minhas compras</span>
                 </Link>
               </div>
 
