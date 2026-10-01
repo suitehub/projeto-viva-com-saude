@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Clock, ArrowRight } from "lucide-react";
 import { SiteFooter, SiteHeader, TopBar, WhatsAppFab } from "@/components/site-chrome";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/data/cart";
 import { useStoreProducts } from "@/data/all-store-products";
+import { BACKEND_URL } from "@/lib/backend";
 
 export const Route = createFileRoute("/pedido/pendente")({
   ssr: false,
@@ -16,6 +18,21 @@ export const Route = createFileRoute("/pedido/pendente")({
 function OrderPendingPage() {
   const allProducts = useStoreProducts();
   const cart = useCart(allProducts);
+  const [orderNumber, setOrderNumber] = useState<string | null>(null);
+
+  // Registra o pedido como pendente (não limpa o carrinho aqui).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentId =
+      params.get("payment_id") || params.get("collection_id") || params.get("collectionId");
+    if (!paymentId) return;
+    fetch(`${BACKEND_URL}/api/confirmar-pedido?payment_id=${encodeURIComponent(paymentId)}`)
+      .then((res) => res.json().catch(() => ({})))
+      .then((data: { orderNumber?: string }) => {
+        if (data.orderNumber) setOrderNumber(data.orderNumber);
+      })
+      .catch((err) => console.error("Erro ao registrar pedido pendente:", err));
+  }, []);
 
   return (
     <main className="flex min-h-screen flex-col bg-background text-foreground">
@@ -29,6 +46,11 @@ function OrderPendingPage() {
             Estamos aguardando a confirmação do pagamento (Pix ou boleto). Assim que compensar,
             seu pedido entra em preparação automaticamente.
           </p>
+          {orderNumber && (
+            <p className="mt-3 inline-block rounded-full bg-amber-50 px-4 py-1.5 text-sm font-bold text-amber-700">
+              Pedido {orderNumber} registrado
+            </p>
+          )}
           <Button asChild className="mt-6 h-11 w-full">
             <Link to="/">
               Voltar à loja

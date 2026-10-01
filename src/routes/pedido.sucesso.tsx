@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { CheckCircle2, ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckCircle2, ArrowRight, AlertTriangle } from "lucide-react";
 import { SiteFooter, SiteHeader, TopBar, WhatsAppFab } from "@/components/site-chrome";
 import { Button } from "@/components/ui/button";
 import { clearCart } from "@/data/cart";
+import { BACKEND_URL } from "@/lib/backend";
 
 export const Route = createFileRoute("/pedido/sucesso")({
   ssr: false,
@@ -14,8 +15,40 @@ export const Route = createFileRoute("/pedido/sucesso")({
 });
 
 function OrderSuccessPage() {
+  const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState("");
+
+  const confirmOrder = async () => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentId =
+      params.get("payment_id") || params.get("collection_id") || params.get("collectionId");
+    if (!paymentId) {
+      setOrderNumber(null);
+      clearCart();
+      return;
+    }
+    try {
+      const res = await fetch(
+        `${BACKEND_URL}/api/confirmar-pedido?payment_id=${encodeURIComponent(paymentId)}`,
+      );
+      const data = (await res.json().catch(() => ({}))) as {
+        orderNumber?: string;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error || "Falha ao registrar pedido.");
+      if (data.orderNumber) setOrderNumber(data.orderNumber);
+      clearCart();
+    } catch (err) {
+      console.error("Erro ao confirmar pedido:", err);
+      setConfirmError(
+        "Pagamento aprovado, mas não consegui registrar o pedido. Toque abaixo para tentar de novo.",
+      );
+    }
+  };
+
   useEffect(() => {
-    clearCart();
+    void confirmOrder();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -30,6 +63,30 @@ function OrderSuccessPage() {
             Obrigado pela compra! Enviamos os detalhes para o seu e-mail e já estamos preparando
             seu pedido.
           </p>
+          {orderNumber && (
+            <p className="mt-3 inline-block rounded-full bg-emerald-50 px-4 py-1.5 text-sm font-bold text-emerald-700">
+              Pedido {orderNumber} registrado
+            </p>
+          )}
+          {confirmError && (
+            <div className="mt-3 space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <p className="flex items-start gap-2 text-xs text-amber-800">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                {confirmError}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setConfirmError("");
+                  void confirmOrder();
+                }}
+              >
+                Tentar registrar de novo
+              </Button>
+            </div>
+          )}
           <Button asChild className="mt-6 h-11 w-full">
             <Link to="/">
               Voltar à loja
