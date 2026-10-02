@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -9,6 +9,7 @@ import {
   Minus,
   Plus,
   ShoppingCart,
+  TicketPercent,
   Trash2,
   Truck,
   User,
@@ -29,6 +30,12 @@ import {
   useCart,
 } from "@/data/cart";
 import { createMercadoPagoPreference } from "@/lib/backend";
+import { toast } from "sonner";
+import {
+  fetchCouponByCode,
+  computeCouponDiscount,
+  type CouponCheck,
+} from "@/lib/coupons";
 import productsImage from "@/assets/viva-products.jpg";
 
 export const Route = createFileRoute("/checkout")({
@@ -81,12 +88,66 @@ function CheckoutPage() {
   const [freightId, setFreightId] = useState(FREIGHT_OPTIONS[0].id);
   const [formError, setFormError] = useState("");
   const [isPaying, setIsPaying] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponCheck | null>(null);
+  const [couponError, setCouponError] = useState("");
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
   const freight = useMemo(
     () => FREIGHT_OPTIONS.find((f) => f.id === freightId) || FREIGHT_OPTIONS[0],
     [freightId],
   );
-  const total = subtotal + freight.price;
+
+  const couponItems = useMemo(
+    () =>
+      items.map(({ product, qty }) => ({
+        id: product.id,
+        price: product.price,
+        qty,
+        discount: product.discount,
+        categoriesList: product.categoriesList,
+      })),
+    [items],
+  );
+
+  // Recalcula o cupom se o carrinho mudar; derruba se ficar inválido
+  const itemsSignature = items.map(({ product, qty }) => `${product.id}:${qty}`).join("|");
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    try {
+      setAppliedCoupon(computeCouponDiscount(appliedCoupon.coupon, couponItems, subtotal));
+      setCouponError("");
+    } catch {
+      setAppliedCoupon(null);
+      setCouponError("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsSignature]);
+
+  const couponDiscount = appliedCoupon?.discount || 0;
+  const effectiveFreightPrice = appliedCoupon?.freeShipping ? 0 : freight.price;
+  const total = Math.max(0, subtotal - couponDiscount + effectiveFreightPrice);
+
+  const handleApplyCoupon = async () => {
+    const code = couponInput.trim().toUpperCase();
+    if (!code || isApplyingCoupon) return;
+    setCouponError("");
+    setIsApplyingCoupon(true);
+    try {
+      const coupon = await fetchCouponByCode(code);
+      if (!coupon) {
+        setCouponError("Cupom não encontrado.");
+        return;
+      }
+      setAppliedCoupon(computeCouponDiscount(coupon, couponItems, subtotal));
+      toast.success(`Cupom ${code} aplicado!`);
+    } catch (err) {
+      setAppliedCoupon(null);
+      setCouponError(err instanceof Error ? err.message : "Cupom inválido.");
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,16 +210,22 @@ function CheckoutPage() {
     // Cria a preferência do Checkout Pro e redireciona ao Mercado Pago.
     setIsPaying(true);
     try {
-      const paymentUrl = await createMercadoPagoPreference({
+      const payment = await createMercadoPagoPreference({
         items: payload.items.map((item) => {
           const full = items.find((i) => String(i.product.id) === item.id);
-          return { ...item, imageUrl: full?.product.imageUrl };
+          return {
+            ...item,
+            imageUrl: full?.product.imageUrl,
+            categoriesList: full?.product.categoriesList,
+            discount: full?.product.discount,
+          };
         }),
-        freightPrice: payload.freightPrice,
+        freightPrice: effectiveFreightPrice,
         freightLabel: freight.label,
         email: payload.customer.email,
+        couponCode: appliedCoupon?.coupon.code,
       });
-      window.location.href = paymentUrl;
+      window.location.href = payment.init_point || payment.sandbox_init_point || "";
     } catch (err) {
       console.error("Erro ao iniciar pagamento:", err);
       setFormError(
@@ -444,6 +511,58 @@ function CheckoutPage() {
             {/* Resumo */}
             <aside className="h-fit rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6 lg:sticky lg:top-24">
               <h2 className="text-base font-bold">Resumo do pedido</h2>
+
+              {/* Cupom de desconto */}
+              <div className="mt-4 rounded-xl border border-dashed border-border bg-muted/50 p-3">
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
+                      <TicketPercent className="h-3.5 w-3.5" />
+                      {appliedCoupon.coupon.code}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAppliedCoupon(null);
+                        setCouponInput("");
+                        setCouponError("");
+                      }}
+                      className="text-xs font-semibold text-muted-foreground hover:text-red-600"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <Label className="text-xs font-semibold">Cupom de desconto</Label>
+                    <div className="mt-1.5 flex gap-2">
+                      <Input
+                        value={couponInput}
+                        onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                        placeholder="Ex: VIVA10"
+                        className="h-10 uppercase"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void handleApplyCoupon();
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10 shrink-0"
+                        disabled={isApplyingCoupon || !couponInput.trim()}
+                        onClick={() => void handleApplyCoupon()}
+                      >
+                        {isApplyingCoupon ? "Validando..." : "Aplicar"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {couponError && <p className="mt-1.5 text-xs text-red-600">{couponError}</p>}
+              </div>
+
               <dl className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">
@@ -451,10 +570,25 @@ function CheckoutPage() {
                   </dt>
                   <dd className="font-semibold">{formatPrice(subtotal)}</dd>
                 </div>
+                {couponDiscount > 0 && (
+                  <div className="flex justify-between text-emerald-700">
+                    <dt>Desconto ({appliedCoupon?.coupon.code})</dt>
+                    <dd className="font-semibold">−{formatPrice(couponDiscount)}</dd>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Frete ({freight.label})</dt>
                   <dd className="font-semibold">
-                    {freight.price === 0 ? "Grátis" : formatPrice(freight.price)}
+                    {effectiveFreightPrice === 0 ? (
+                      <span>
+                        Grátis
+                        {appliedCoupon?.freeShipping && (
+                          <span className="ml-1 text-[11px] text-emerald-700">(cupom)</span>
+                        )}
+                      </span>
+                    ) : (
+                      formatPrice(effectiveFreightPrice)
+                    )}
                   </dd>
                 </div>
                 <div className="flex justify-between border-t border-border pt-3 text-base">

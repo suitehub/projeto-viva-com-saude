@@ -12,12 +12,16 @@ export interface BackendCartItem {
   qty: number;
   unitPrice: number;
   imageUrl?: string;
+  categoriesList?: string[];
+  discount?: number;
 }
 
 export interface CreatePreferenceResponse {
   id: string;
   init_point?: string;
   sandbox_init_point?: string;
+  appliedDiscount?: number;
+  freeShipping?: boolean;
 }
 
 /**
@@ -28,7 +32,8 @@ export async function createMercadoPagoPreference(input: {
   freightPrice: number;
   freightLabel: string;
   email: string;
-}): Promise<string> {
+  couponCode?: string;
+}): Promise<CreatePreferenceResponse> {
   const res = await fetch(`${BACKEND_URL}/api/criar-preferencia`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -47,5 +52,5 @@ export async function createMercadoPagoPreference(input: {
   if (!url) {
     throw new Error("Resposta inválida do servidor de pagamento.");
   }
-  return url;
+  return { ...data, init_point: url };
 }
