@@ -274,6 +274,9 @@ export function SiteFooter() {
   const whatsappUrl = `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(
     settings.whatsappDefaultMessage,
   )}`;
+  const trocasUrl = `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(
+    "Olá! Preciso de suporte para trocas e devoluções.",
+  )}`;
 
   return (
     <footer className="border-t border-border bg-card">
@@ -288,9 +291,7 @@ export function SiteFooter() {
             { label: "Início", href: "/" },
             { label: "Produtos", href: "/produtos" },
             { label: "Categorias", href: "/produtos" },
-            { label: "Sobre nós", href: "/#sobre" },
             { label: "Contato / Enviar mensagem", href: "/#contato-formulario" },
-            { label: "Painel do Administrador", href: "/admin" },
           ]}
         />
         <FooterColumn
@@ -301,10 +302,9 @@ export function SiteFooter() {
               href: whatsappUrl,
               external: true,
             },
-            "Política de privacidade",
-            "Trocas e devoluções",
-            "Formas de pagamento",
-            "Entrega",
+            { label: "Política de privacidade", href: "/privacidade" },
+            { label: "Trocas e devoluções", href: trocasUrl, external: true },
+            { label: "Entrega", href: "/#contato-formulario" },
           ]}
         />
         <div>
@@ -333,13 +333,7 @@ export function SiteFooter() {
           </ul>
         </div>
         <div>
-          <h3 className="text-sm font-bold">Formas de pagamento</h3>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span className="payment-mark">VISA</span>
-            <span className="payment-mark">MC</span>
-            <span className="payment-mark">ELO</span>
-            <span className="payment-mark">PIX</span>
-          </div>
+          <h3 className="text-sm font-bold">Compra protegida</h3>
           <div className="mt-4 flex items-center gap-2 rounded-md bg-brand-soft p-3 text-primary">
             <ShieldCheck className="h-8 w-8" />
             <span className="text-[0.65rem] font-bold uppercase">
@@ -354,10 +348,6 @@ export function SiteFooter() {
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-5 text-[0.65rem] text-muted-foreground sm:flex-row sm:items-center sm:justify-between lg:px-8">
           <span>© 2026 Projeto Viva com Saúde. Todos os direitos reservados.</span>
           <div className="flex items-center gap-4">
-            <Link to="/admin" className="hover:text-foreground underline transition-colors">
-              Painel do Administrador
-            </Link>
-            <span>•</span>
             <span>Feito com cuidado por quem acredita em uma vida mais saudável.</span>
           </div>
         </div>
