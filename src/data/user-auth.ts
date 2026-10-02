@@ -12,7 +12,8 @@ import {
   User as FirebaseUser,
 } from "firebase/auth";
 import { auth, googleProvider, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, deleteDoc } from "firebase/firestore";
+import { clearCart, clearRemoteCart } from "./cart";
 
 export interface UserProfile {
   id: string;
@@ -279,12 +280,18 @@ export async function updateUserProfile(
 }
 
 export async function logoutUser(): Promise<void> {
+  // Limpa o carrinho local e da nuvem (ainda autenticado p/ poder apagar)
+  const uid = auth.currentUser?.uid;
+  if (uid) {
+    await clearRemoteCart(uid);
+  }
   try {
     await signOut(auth);
   } catch {
     // Non-blocking
   }
   saveCurrentUser(null);
+  clearCart();
 }
 
 /**

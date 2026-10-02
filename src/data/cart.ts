@@ -1,10 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "@/lib/firebase";
 import type { Product } from "./products";
 
 export type CartMap = Record<string, number>;
 
 const STORAGE_KEY = "pvcs_cart";
 const CART_EVENT = "pvcs_cart_change";
+const CART_DOC_ID = "active";
+const MAX_QTY_PER_ITEM = 99;
 
 export interface FreightOption {
   id: string;
@@ -78,6 +83,60 @@ export function clearCart(): void {
   writeCart({});
 }
 
+/** Apaga o carrinho da nuvem (usado no logout). */
+export async function clearRemoteCart(uid: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, "users", uid, "carts", CART_DOC_ID));
+  } catch {
+    // segue o logout mesmo offline
+  }
+}
+
+interface RemoteCartItem {
+  productId: string;
+  qty: number;
+}
+
+function cartToRemoteItems(cart: CartMap): RemoteCartItem[] {
+  return Object.entries(cart)
+    .filter(([, qty]) => qty > 0)
+    .slice(0, 100)
+    .map(([productId, qty]) => ({
+      productId: String(productId).slice(0, 128),
+      qty: Math.min(MAX_QTY_PER_ITEM, Math.floor(qty)),
+    }));
+}
+
+function remoteItemsToCart(items: unknown): CartMap {
+  const cart: CartMap = {};
+  if (!Array.isArray(items)) return cart;
+  for (const entry of items) {
+    const e = entry as Partial<RemoteCartItem>;
+    const qty = Math.floor(Number(e.qty));
+    if (typeof e.productId === "string" && e.productId && Number.isFinite(qty) && qty > 0) {
+      cart[e.productId] = Math.min(MAX_QTY_PER_ITEM, qty);
+    }
+  }
+  return cart;
+}
+
+/** Envia o carrinho local para a nuvem (só logado). */
+export async function pushCartToFirestore(uid: string, cart: CartMap): Promise<void> {
+  await setDoc(
+    doc(db, "users", uid, "carts", CART_DOC_ID),
+    { items: cartToRemoteItems(cart), updatedAt: new Date().toISOString() },
+    { merge: true },
+  );
+}
+
+/** Baixa o carrinho da nuvem (só logado). */
+export async function pullCartFromFirestore(uid: string): Promise<CartMap> {
+  const snap = await getDoc(doc(db, "users", uid, "carts", CART_DOC_ID));
+  if (!snap.exists()) return {};
+  const data = snap.data() as { items?: unknown };
+  return remoteItemsToCart(data.items);
+}
+
 export function getCartCount(cart?: CartMap): number {
   const c = cart ?? readCart();
   return Object.values(c).reduce((sum, qty) => sum + qty, 0);
@@ -99,22 +158,59 @@ export function getCartItems(products: Product[], cart?: CartMap): Array<{
 }
 
 /**
- * Hook do carrinho compartilhado: persiste em localStorage e sincroniza
- * entre páginas/abas abertas.
+ * Hook do carrinho compartilhado: persiste em localStorage e, logado,
+ * sincroniza com o Firestore (mesmo carrinho em outro navegador).
  */
 export function useCart(products: Product[] = []) {
   const [cart, setCartState] = useState<CartMap>(() => readCart());
+  const [uid, setUid] = useState<string | null>(() => auth.currentUser?.uid || null);
+  const syncedUid = useRef<string | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setCartState(readCart());
     const handleChange = () => setCartState(readCart());
     window.addEventListener(CART_EVENT, handleChange);
     window.addEventListener("storage", handleChange);
+    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+      setUid(fbUser?.uid || null);
+    });
     return () => {
       window.removeEventListener(CART_EVENT, handleChange);
       window.removeEventListener("storage", handleChange);
+      unsubscribe();
     };
   }, []);
+
+  // Ao logar: junta carrinho local + nuvem (soma quantidades) e sincroniza.
+  useEffect(() => {
+    if (!uid || syncedUid.current === uid) return;
+    syncedUid.current = uid;
+    pullCartFromFirestore(uid)
+      .then((remote) => {
+        const local = readCart();
+        const merged: CartMap = { ...remote };
+        for (const [key, qty] of Object.entries(local)) {
+          merged[key] = Math.min(MAX_QTY_PER_ITEM, (merged[key] ?? 0) + qty);
+        }
+        setCartState(merged);
+        writeCart(merged);
+        return pushCartToFirestore(uid, merged).catch(() => {});
+      })
+      .catch(() => {});
+  }, [uid]);
+
+  // A cada mudança (logado e sincronizado): envia à nuvem com debounce.
+  useEffect(() => {
+    if (!uid || syncedUid.current !== uid) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      pushCartToFirestore(uid, readCart()).catch(() => {});
+    }, 600);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [cart, uid]);
 
   const add = useCallback((productId: number | string, qty = 1) => {
     setCartState(addCartItem(productId, qty));

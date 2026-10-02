@@ -62,6 +62,13 @@ service cloud.firestore {
         data.addedAt is string && data.addedAt.size() <= 40;
     }
 
+    function isValidCart(data) {
+      return data.keys().hasAll(['items', 'updatedAt']) &&
+        data.keys().hasOnly(['items', 'updatedAt']) &&
+        data.items is list && data.items.size() <= 100 &&
+        data.updatedAt is string && data.updatedAt.size() <= 40;
+    }
+
     function isValidAdminRole(data) {
       return data.keys().hasAll(['email', 'role']) &&
         data.keys().hasOnly(['email', 'role', 'grantedAt']) &&
@@ -121,8 +128,8 @@ service cloud.firestore {
     // --- 2. Users Collection ---
     // Perfis de usuário vivem SOMENTE no Firebase Authentication — nenhum
     // documento de perfil é gravado no Firestore pelo app. Leituras/escritas
-    // do documento do usuário ficam bloqueadas; apenas a subcoleção de
-    // favoritos (por usuário) permanece ativa.
+    // do documento do usuário ficam bloqueadas; apenas favoritos e carrinho
+    // (por usuário) permanecem ativos.
     match /users/{userId} {
       allow get, list, create, update, delete: if false;
 
@@ -139,6 +146,15 @@ service cloud.firestore {
         allow update: if false; // Favorites are atomic bookmarks: add or remove
 
         allow delete: if isValidId(productId) && isOwner(userId);
+      }
+
+      // --- 3b. User Cart (sincroniza entre navegadores, só o dono) ---
+      match /carts/{cartId} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          isValidId(cartId) &&
+          isValidCart(incoming());
+        allow delete: if isOwner(userId) && isValidId(cartId);
       }
     }
 
