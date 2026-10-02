@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Info,
   MoreVertical,
-  Radio,
   Tag,
   TrendingUp,
   UserCheck,
@@ -162,31 +161,6 @@ export function StatisticsOthers({ tab }: { tab: StatSubTab }) {
               </div>
             ))}
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (tab === "visitas") {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Visitas</h1>
-          <p className="mt-1 text-xs text-gray-500">
-            Fontes de tráfego, dispositivos e distribuição de acessos à sua loja.
-          </p>
-        </div>
-
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center shadow-xs">
-          <Radio className="mx-auto h-8 w-8 text-gray-300" />
-          <h2 className="mt-3 text-base font-bold text-gray-800">
-            Rastreamento de visitas ainda não instalado
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-gray-500">
-            Para ver origem de tráfego e dispositivos, conecte uma ferramenta de analytics
-            (ex.: Google Analytics ou Meta Pixel) ao site. Enquanto isso, as vendas e os
-            pedidos já alimentam as demais abas de estatísticas.
-          </p>
         </div>
       </div>
     );

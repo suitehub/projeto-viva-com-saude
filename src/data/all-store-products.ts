@@ -125,7 +125,10 @@ export function convertAdminProductToStoreProduct(item: AdminProductItem, index:
     discount,
     oldPrice,
     price: currentPrice,
-    installments: currentPrice > 0 ? 6 : 1,
+    installments:
+      currentPrice > 0
+        ? Math.min(12, Math.max(1, Math.floor(item.maxInstallments ?? 6)))
+        : 1,
     rating: 5.0,
     reviews: 0,
     shortDescription: descParagraphs[0]?.slice(0, 160) || item.seoDescription || item.name,

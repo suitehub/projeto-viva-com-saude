@@ -10,6 +10,7 @@ import { CustomersList } from "@/components/admin/customers-list";
 import { CustomerMessages } from "@/components/admin/customer-messages";
 import { OnlineStoreCustomizer } from "@/components/admin/online-store-customizer";
 import { DiscountsList } from "@/components/admin/discounts-list";
+import { ShippingTracker } from "@/components/admin/shipping-tracker";
 import { AdminGate } from "@/components/admin/admin-gate";
 
 export const Route = createFileRoute("/admin")({
@@ -40,11 +41,11 @@ function AdminPage() {
       {activeSubTab === "lista-de-produtos" && <ProductsList />}
       {activeSubTab === "lista-de-vendas" && <SalesList />}
       {activeSubTab === "descontos" && <DiscountsList />}
+      {activeSubTab === "correios" && <ShippingTracker />}
       {activeSubTab === "loja-online" && <OnlineStoreCustomizer />}
       {activeSubTab === "visao-geral" && <StatisticsOverview />}
       {activeSubTab === "produtos" && <StatisticsProducts />}
       {(activeSubTab === "vendas-e-clientes" ||
-        activeSubTab === "visitas" ||
         activeSubTab === "tempo-real" ||
         activeSubTab === "relatorio-de-cupons") && <StatisticsOthers tab={activeSubTab} />}
       </AdminLayout>

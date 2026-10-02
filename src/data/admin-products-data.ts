@@ -43,6 +43,7 @@ export interface AdminProductItem {
   gender: string;
   ageGroup: string;
   cost: number;
+  maxInstallments?: number;
   visibility: "Visível" | "Não listado" | "Oculto";
   featured?: boolean;
   featuredAt?: string;

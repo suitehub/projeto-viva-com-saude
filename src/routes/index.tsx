@@ -714,7 +714,7 @@ function Index() {
                 </p>
                 <p className="text-lg font-extrabold text-sale">{formatPrice(product.price)}</p>
                 <p className="mb-3 text-[0.68rem] text-muted-foreground">
-                  6x de {formatPrice(product.price / 6)}
+                  {product.installments}x de {formatPrice(product.price / product.installments)}
                 </p>
                 <div className="mt-auto grid gap-2">
                   <Button

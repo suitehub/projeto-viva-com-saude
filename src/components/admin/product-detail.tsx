@@ -678,17 +678,39 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
             </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="exibir-preco"
-              checked={formData.displayInStore}
-              onChange={(e) => setFormData({ ...formData, displayInStore: e.target.checked })}
-              className="h-4 w-4 rounded border-gray-300 text-[#0066d6] focus:ring-[#0066d6]"
-            />
-            <label htmlFor="exibir-preco" className="text-xs font-medium text-gray-700">
-              Exibir o preço na loja
-            </label>
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="exibir-preco"
+                checked={formData.displayInStore}
+                onChange={(e) => setFormData({ ...formData, displayInStore: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300 text-[#0066d6] focus:ring-[#0066d6]"
+              />
+              <label htmlFor="exibir-preco" className="text-xs font-medium text-gray-700">
+                Exibir o preço na loja
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="max-parcelas" className="text-xs font-medium text-gray-700">
+                Parcelar em até
+              </label>
+              <select
+                id="max-parcelas"
+                value={formData.maxInstallments ?? 6}
+                onChange={(e) =>
+                  setFormData({ ...formData, maxInstallments: Number(e.target.value) })
+                }
+                className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-bold text-gray-900 focus:border-[#0066d6] focus:outline-hidden"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
+                    {n}x
+                  </option>
+                ))}
+              </select>
+              <span className="text-[11px] text-gray-400">na loja e no MP</span>
+            </div>
           </div>
 
           <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 pt-4 border-t border-gray-100">

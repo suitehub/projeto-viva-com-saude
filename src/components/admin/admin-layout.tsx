@@ -29,11 +29,11 @@ export type StatSubTab =
   | "visao-geral"
   | "produtos"
   | "vendas-e-clientes"
-  | "visitas"
   | "tempo-real"
   | "relatorio-de-cupons"
   | "lista-de-vendas"
   | "lista-de-produtos"
+  | "correios"
   | "lista-de-clientes"
   | "mensagens-clientes"
   | "descontos"
@@ -52,7 +52,6 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
     activeSubTab === "visao-geral" ||
       activeSubTab === "produtos" ||
       activeSubTab === "vendas-e-clientes" ||
-      activeSubTab === "visitas" ||
       activeSubTab === "tempo-real" ||
       activeSubTab === "relatorio-de-cupons",
   );
@@ -79,7 +78,6 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
     { id: "visao-geral", label: "Visão geral" },
     { id: "produtos", label: "Produtos" },
     { id: "vendas-e-clientes", label: "Vendas e clientes" },
-    { id: "visitas", label: "Visitas" },
     { id: "tempo-real", label: "Tempo real" },
     { id: "relatorio-de-cupons", label: "Relatório de cupons" },
   ];
@@ -147,7 +145,6 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
                     activeSubTab === "visao-geral" ||
                     activeSubTab === "produtos" ||
                     activeSubTab === "vendas-e-clientes" ||
-                    activeSubTab === "visitas" ||
                     activeSubTab === "tempo-real" ||
                     activeSubTab === "relatorio-de-cupons"
                       ? "bg-[#eaf1fb] text-[#0066d6] font-semibold"
@@ -160,7 +157,6 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
                         activeSubTab === "visao-geral" ||
                         activeSubTab === "produtos" ||
                         activeSubTab === "vendas-e-clientes" ||
-                        activeSubTab === "visitas" ||
                         activeSubTab === "tempo-real" ||
                         activeSubTab === "relatorio-de-cupons"
                           ? "text-[#0066d6]"
@@ -317,10 +313,26 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 cursor-pointer">
-                  <Truck className="h-4 w-4 shrink-0 text-gray-500" />
-                  {!sidebarCollapsed && <span>Nuvem Envio</span>}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectSubTab("correios");
+                    setMobileMenuOpen(false);
+                  }}
+                  title={sidebarCollapsed ? "Correios" : undefined}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+                    activeSubTab === "correios"
+                      ? "bg-[#0066d6] text-white font-semibold shadow-xs"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  <Truck
+                    className={`h-4 w-4 shrink-0 ${
+                      activeSubTab === "correios" ? "text-white" : "text-gray-500"
+                    }`}
+                  />
+                  {!sidebarCollapsed && <span>Correios</span>}
+                </button>
 
                 {/* Clientes Accordion matching Nuvemshop screenshot */}
                 <div>

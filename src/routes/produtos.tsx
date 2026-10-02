@@ -557,7 +557,7 @@ export function AllProductsPage() {
                         {formatPrice(product.price)}
                       </p>
                       <p className="text-[0.68rem] text-muted-foreground">
-                        6x de {formatPrice(product.price / 6)}
+                        {product.installments}x de {formatPrice(product.price / product.installments)}
                       </p>
                     </div>
 
