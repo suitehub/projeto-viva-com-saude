@@ -929,7 +929,6 @@ function Index() {
               },
               "Política de privacidade",
               "Trocas e devoluções",
-              "Formas de pagamento",
               "Entrega",
             ]}
           />
