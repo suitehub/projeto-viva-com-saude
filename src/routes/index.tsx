@@ -586,14 +586,14 @@ function Index() {
               </a>
             </Button>
             <div className="mt-10 grid max-w-lg grid-cols-3 gap-3 border-t border-primary/15 pt-5 text-xs font-semibold text-primary">
-              <span className="flex items-center gap-2">
-                <Leaf className="h-5 w-5" /> {settings.heroBadge1 || "100% naturais"}
+              <span className="flex items-center justify-start gap-2">
+                <Leaf className="h-5 w-5 shrink-0" /> {settings.heroBadge1 || "100% naturais"}
               </span>
-              <span className="flex items-center gap-2">
-                <BadgeCheck className="h-5 w-5" /> {settings.heroBadge2 || "Qualidade comprovada"}
+              <span className="flex items-center justify-center gap-2 text-center">
+                <BadgeCheck className="h-5 w-5 shrink-0" /> {settings.heroBadge2 || "Qualidade comprovada"}
               </span>
-              <span className="flex items-center gap-2">
-                <Truck className="h-5 w-5" /> Entrega nacional
+              <span className="flex items-center justify-end gap-2 text-right">
+                <Truck className="h-5 w-5 shrink-0" /> Entrega nacional
               </span>
             </div>
           </div>
