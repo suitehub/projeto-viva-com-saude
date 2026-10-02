@@ -85,14 +85,14 @@ function AccountPage() {
     return "entrar";
   });
 
-  // Sync with search or login status
+  // Sync with search or login status (login sempre leva ao perfil)
   useEffect(() => {
-    if (search.tab === "registrar") {
+    if (isLoggedIn) {
+      setActiveTab("perfil");
+    } else if (search.tab === "registrar") {
       setActiveTab("registrar");
     } else if (search.tab === "entrar") {
       setActiveTab("entrar");
-    } else if (isLoggedIn) {
-      setActiveTab("perfil");
     }
   }, [search.tab, isLoggedIn]);
 

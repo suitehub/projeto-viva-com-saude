@@ -3,6 +3,8 @@ import { useState, useMemo, useEffect } from "react";
 import {
   ArrowUpDown,
   ChevronRight,
+  Minus,
+  Plus,
   RotateCcw,
   Search,
   ShoppingCart,
@@ -88,6 +90,7 @@ export function AllProductsPage() {
   // Carrinho compartilhado (persiste entre páginas)
   const cart = useCart(allProducts);
   const cartCount = cart.count;
+  const [cartOpen, setCartOpen] = useState(false);
 
   const addToCart = (id: number | string) => {
     if (!isLoggedIn) {
@@ -102,6 +105,7 @@ export function AllProductsPage() {
     }
     cart.add(id);
     toast.success("Produto adicionado ao carrinho!");
+    setCartOpen(true);
   };
 
   // Extract all unique categories present in the products catalog
@@ -323,7 +327,7 @@ export function AllProductsPage() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-background text-foreground flex flex-col">
       <TopBar />
-      <SiteHeader cartCount={cartCount} />
+      <SiteHeader cartCount={cartCount} onCartClick={() => setCartOpen(true)} />
 
       {/* Breadcrumb Header */}
       <div className="border-b border-border bg-card/60">
@@ -602,6 +606,86 @@ export function AllProductsPage() {
           </div>
         </div>
       </div>
+
+      {/* Drawer do carrinho */}
+      <Sheet open={cartOpen} onOpenChange={setCartOpen}>
+        <SheetContent className="flex w-full flex-col sm:max-w-md">
+          <SheetHeader className="border-b border-border pb-5 text-left">
+            <SheetTitle className="font-display text-3xl">Seu carrinho</SheetTitle>
+            <SheetDescription>
+              {cartCount
+                ? `${cartCount} ${cartCount === 1 ? "item selecionado" : "itens selecionados"}`
+                : "Seu carrinho está vazio."}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 space-y-4 overflow-y-auto py-5">
+            {cart.items.map(({ product, qty }) => (
+              <div
+                key={product.id}
+                className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 border-b border-border pb-4"
+              >
+                {product.imageUrl ? (
+                  <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    className="h-20 w-full rounded-md object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div
+                    className="product-crop h-20 rounded-md"
+                    style={{
+                      backgroundImage: `url(${productsImage})`,
+                      backgroundPosition: product.imagePosition,
+                    }}
+                  />
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold leading-snug">{product.name}</p>
+                  <p className="mt-1 font-bold text-primary">{formatPrice(product.price)}</p>
+                  <div className="mt-2 flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => cart.setQty(product.id, qty - 1)}
+                      aria-label={`Diminuir ${product.name}`}
+                    >
+                      <Minus className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="w-7 text-center text-sm font-semibold">{qty}</span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => cart.setQty(product.id, qty + 1)}
+                      aria-label={`Aumentar ${product.name}`}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-border pt-5">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Subtotal</span>
+              <strong className="text-xl">{formatPrice(cart.subtotal)}</strong>
+            </div>
+            <Button
+              className="h-12 w-full font-semibold"
+              disabled={!cartCount}
+              onClick={() => {
+                setCartOpen(false);
+                navigate({ to: "/checkout" });
+              }}
+            >
+              Finalizar compra
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <WhatsAppFab />
       <SiteFooter />

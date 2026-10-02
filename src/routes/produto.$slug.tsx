@@ -1,6 +1,7 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
+  ArrowRight,
   ChevronDown,
   Copy,
   Facebook,
