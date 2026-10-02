@@ -26,6 +26,7 @@ import {
   deleteAdminCustomerFromFirestore,
   saveAllAdminCustomersToFirestore,
 } from "@/data/admin-customers-data";
+import { fetchAllOrdersFromFirestore } from "@/data/admin-orders-data";
 import { exportToCustomersCsv, parseCustomersCsv } from "@/lib/nuvemshop-customers-csv";
 import { readCsvText } from "@/lib/csv-encoding";
 import { mapAdminWriteError } from "@/lib/admin-errors";
@@ -140,6 +141,84 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
       .catch(() => {
         setImportStatusMessage("Não foi possível ler o arquivo CSV.");
       });
+  };
+
+  // Importa clientes a partir dos pedidos (quem comprou aparece aqui)
+  const [isImportingOrders, setIsImportingOrders] = useState(false);
+  const handleImportFromOrders = async () => {
+    setIsImportingOrders(true);
+    try {
+      const orders = await fetchAllOrdersFromFirestore();
+      const withEmail = orders.filter((o) => o.email && o.email.trim());
+      if (withEmail.length === 0) {
+        toast.info("Nenhum pedido com e-mail para importar.");
+        return;
+      }
+      const grouped = new Map<string, AdminCustomerItem>();
+      for (const order of withEmail) {
+        const email = order.email.trim().toLowerCase();
+        const id =
+          email
+            .replace(/[^a-z0-9]/g, "-")
+            .replace(/-+/g, "-")
+            .slice(0, 40) || order.id;
+        const prev = grouped.get(email);
+        if (prev) {
+          grouped.set(email, {
+            ...prev,
+            fullName: order.customer || prev.fullName,
+            phone: order.phone || prev.phone,
+            totalSpent: prev.totalSpent + (Number(order.total) || 0),
+            purchasesCount: prev.purchasesCount + 1,
+            lastPurchaseDate: order.date || prev.lastPurchaseDate,
+            lastOrderNumber: order.orderNumber || prev.lastOrderNumber,
+          });
+        } else {
+          grouped.set(email, {
+            id,
+            fullName: order.customer || "Sem nome",
+            cpfCnpj: "",
+            email,
+            phone: order.phone || "",
+            gender: "",
+            birthDate: "",
+            address: "",
+            number: "",
+            complement: "",
+            city: "",
+            neighborhood: "",
+            state: "",
+            cep: "",
+            country: "Brasil",
+            totalSpent: Number(order.total) || 0,
+            purchasesCount: 1,
+            lastPurchaseDate: order.date || "",
+            lastOrderNumber: order.orderNumber || "",
+            registrationDate: order.date || new Date().toLocaleDateString("pt-BR"),
+            registered: true,
+            newsletter: false,
+            marketing: "Não aceita",
+            marketingUpdateDate: order.date || new Date().toLocaleDateString("pt-BR"),
+            tags: "",
+            notes: "",
+            priceTable: "",
+          });
+        }
+      }
+      const existingMap = new Map(customers.map((c) => [(c.email || "").toLowerCase() || c.id, c]));
+      for (const [email, item] of grouped) {
+        existingMap.set(email, item);
+      }
+      const merged = Array.from(existingMap.values());
+      setCustomers(merged);
+      await saveAllAdminCustomersToFirestore(merged);
+      toast.success(`${grouped.size} cliente(s) importado(s) dos pedidos!`);
+    } catch (err) {
+      console.error("Erro ao importar clientes dos pedidos:", err);
+      toast.error(mapAdminWriteError(err, "a importação dos pedidos"));
+    } finally {
+      setIsImportingOrders(false);
+    }
   };
 
   // Add customer
@@ -303,6 +382,18 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
                 </div>
               )}
             </div>
+
+            {/* Importar dos pedidos */}
+            <button
+              type="button"
+              onClick={handleImportFromOrders}
+              disabled={isImportingOrders}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 shadow-2xs hover:bg-gray-50 transition-colors disabled:opacity-60"
+              title="Cria clientes a partir dos e-mails dos pedidos"
+            >
+              <Download className="h-4 w-4 text-[#0066d6]" />
+              <span>{isImportingOrders ? "Importando..." : "Importar dos pedidos"}</span>
+            </button>
 
             {/* Adicionar novo cliente */}
             <button

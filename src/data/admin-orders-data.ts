@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDocs,
   setDoc,
   deleteDoc,
   updateDoc,
@@ -217,6 +218,18 @@ export async function updateAdminOrderStatusInFirestore(
   const current = getCachedOrders();
   const updated = current.map((o) => (o.id === orderId ? { ...o, ...updates } : o));
   cacheOrders(updated);
+}
+
+/**
+ * Busca todos os pedidos uma vez (usado p/ importar clientes dos pedidos).
+ */
+export async function fetchAllOrdersFromFirestore(): Promise<SaleOrder[]> {
+  const snap = await getDocs(collection(db, "orders"));
+  const loaded: SaleOrder[] = [];
+  snap.forEach((docSnap) => {
+    loaded.push({ ...(docSnap.data() as SaleOrder), id: docSnap.id });
+  });
+  return loaded;
 }
 
 /**
