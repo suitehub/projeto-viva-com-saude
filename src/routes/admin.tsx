@@ -5,7 +5,6 @@ import { StatisticsOverview } from "@/components/admin/statistics-overview";
 import { StatisticsProducts } from "@/components/admin/statistics-products";
 import { StatisticsOthers } from "@/components/admin/statistics-others";
 import { SalesList } from "@/components/admin/sales-list";
-import { AbandonedCarts } from "@/components/admin/abandoned-carts";
 import { ProductsList } from "@/components/admin/products-list";
 import { CustomersList } from "@/components/admin/customers-list";
 import { CustomerMessages } from "@/components/admin/customer-messages";
@@ -40,7 +39,6 @@ function AdminPage() {
       {activeSubTab === "mensagens-clientes" && <CustomerMessages />}
       {activeSubTab === "lista-de-produtos" && <ProductsList />}
       {activeSubTab === "lista-de-vendas" && <SalesList />}
-      {activeSubTab === "carrinhos-abandonados" && <AbandonedCarts />}
       {activeSubTab === "descontos" && <DiscountsList />}
       {activeSubTab === "loja-online" && <OnlineStoreCustomizer />}
       {activeSubTab === "visao-geral" && <StatisticsOverview />}

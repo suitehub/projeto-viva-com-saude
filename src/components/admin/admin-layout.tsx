@@ -33,7 +33,6 @@ export type StatSubTab =
   | "tempo-real"
   | "relatorio-de-cupons"
   | "lista-de-vendas"
-  | "carrinhos-abandonados"
   | "lista-de-produtos"
   | "lista-de-clientes"
   | "mensagens-clientes"
@@ -58,7 +57,7 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
       activeSubTab === "relatorio-de-cupons",
   );
   const [salesExpanded, setSalesExpanded] = useState(
-    activeSubTab === "lista-de-vendas" || activeSubTab === "carrinhos-abandonados",
+    activeSubTab === "lista-de-vendas",
   );
   const [productsExpanded, setProductsExpanded] = useState(
     activeSubTab === "lista-de-produtos",
@@ -221,7 +220,7 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
                     type="button"
                     onClick={() => setSalesExpanded(!salesExpanded)}
                     className={`flex w-full items-center justify-between rounded-lg px-3 py-2 transition-colors ${
-                      activeSubTab === "lista-de-vendas" || activeSubTab === "carrinhos-abandonados"
+                      activeSubTab === "lista-de-vendas"
                         ? "bg-[#eaf1fb] text-[#0066d6] font-semibold"
                         : "text-gray-700 hover:bg-gray-100"
                     }`}
@@ -229,8 +228,7 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
                     <div className="flex items-center gap-3">
                       <ShoppingBag
                         className={`h-4 w-4 shrink-0 ${
-                          activeSubTab === "lista-de-vendas" ||
-                          activeSubTab === "carrinhos-abandonados"
+                          activeSubTab === "lista-de-vendas"
                             ? "text-[#0066d6]"
                             : "text-gray-500"
                         }`}
@@ -264,21 +262,6 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
                         }`}
                       >
                         <span>Lista de vendas</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onSelectSubTab("carrinhos-abandonados");
-                          setMobileMenuOpen(false);
-                        }}
-                        className={`flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-xs transition-colors ${
-                          activeSubTab === "carrinhos-abandonados"
-                            ? "bg-[#0066d6] text-white font-semibold shadow-xs"
-                            : "text-gray-700 hover:bg-gray-100"
-                        }`}
-                      >
-                        Carrinhos abandonados
                       </button>
                     </div>
                   )}

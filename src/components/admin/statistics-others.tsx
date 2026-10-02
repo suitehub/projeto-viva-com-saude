@@ -1,6 +1,5 @@
+import { useEffect, useMemo, useState } from "react";
 import {
-  Clock,
-  ExternalLink,
   Info,
   MoreVertical,
   Radio,
@@ -11,28 +10,106 @@ import {
   Percent,
 } from "lucide-react";
 import type { StatSubTab } from "./admin-layout";
-import { getAdminCoupons } from "@/data/admin-discounts-data";
+import {
+  SaleOrder,
+  getCachedOrders,
+  subscribeAdminOrders,
+} from "@/data/admin-orders-data";
+import {
+  AdminCustomerItem,
+  getCachedAdminCustomers,
+  subscribeAdminCustomers,
+  CustomerMessageItem,
+  getCachedCustomerMessages,
+  subscribeCustomerMessages,
+} from "@/data/admin-customers-data";
+import {
+  DiscountCoupon,
+  subscribeAdminCoupons,
+} from "@/data/admin-discounts-data";
+import { inPeriod, formatBRL, formatPercent, type StatsPeriod } from "@/lib/stats";
+
+function useLiveData() {
+  const [orders, setOrders] = useState<SaleOrder[]>(() => getCachedOrders());
+  const [customers, setCustomers] = useState<AdminCustomerItem[]>(() => getCachedAdminCustomers());
+  const [messages, setMessages] = useState<CustomerMessageItem[]>(() => getCachedCustomerMessages());
+  const [coupons, setCoupons] = useState<DiscountCoupon[]>([]);
+
+  useEffect(() => {
+    const unsubOrders = subscribeAdminOrders(setOrders);
+    const unsubCustomers = subscribeAdminCustomers(setCustomers);
+    const unsubMessages = subscribeCustomerMessages(setMessages);
+    const unsubCoupons = subscribeAdminCoupons(setCoupons);
+    return () => {
+      unsubOrders();
+      unsubCustomers();
+      unsubMessages();
+      unsubCoupons();
+    };
+  }, []);
+
+  return { orders, customers, messages, coupons };
+}
 
 export function StatisticsOthers({ tab }: { tab: StatSubTab }) {
+  const { orders, customers, messages, coupons } = useLiveData();
+  const [period, setPeriod] = useState<StatsPeriod>("30dias");
+
+  const periodOrders = useMemo(
+    () => orders.filter((o) => inPeriod(o.date, period)),
+    [orders, period],
+  );
+  const paidOrders = useMemo(
+    () => periodOrders.filter((o) => o.paymentStatus === "Recebido"),
+    [periodOrders],
+  );
+
   if (tab === "vendas-e-clientes") {
+    const newCustomers = customers.length;
+    const recurring = customers.filter((c) => (Number(c.purchasesCount) || 0) > 1).length;
+    const ticket = paidOrders.length
+      ? paidOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0) / paidOrders.length
+      : 0;
+
+    const channelCounts = new Map<string, number>();
+    for (const o of periodOrders) {
+      const label = o.paymentMethod || "Não informado";
+      channelCounts.set(label, (channelCounts.get(label) || 0) + 1);
+    }
+    const channels = Array.from(channelCounts.entries()).sort((a, b) => b[1] - a[1]);
+    const channelColors = ["bg-[#0066d6]", "bg-emerald-500", "bg-violet-500", "bg-amber-500"];
+
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Vendas e clientes</h1>
-          <p className="mt-1 text-xs text-gray-500">
-            Acompanhe o comportamento de compras e a fidelização da sua base de clientes.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Vendas e clientes</h1>
+            <p className="mt-1 text-xs text-gray-500">
+              Acompanhe o comportamento de compras e a fidelização da sua base de clientes.
+            </p>
+          </div>
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as StatsPeriod)}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-xs focus:border-[#0066d6] focus:outline-none w-fit"
+          >
+            <option value="hoje">Hoje</option>
+            <option value="7dias">Últimos 7 dias</option>
+            <option value="30dias">Últimos 30 dias</option>
+            <option value="este-mes">Este mês</option>
+            <option value="tudo">Tudo</option>
+          </select>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-lg border border-[#e6e8ee] bg-white p-5 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-700">Novos clientes</span>
+              <span className="text-xs font-semibold text-gray-700">Clientes cadastrados</span>
               <Users className="h-4 w-4 text-[#0066d6]" />
             </div>
-            <div className="mt-3 text-3xl font-bold text-gray-900">0</div>
+            <div className="mt-3 text-3xl font-bold text-gray-900">{newCustomers}</div>
             <p className="mt-2 text-[11px] text-gray-400 font-medium">
-              Sem novos clientes no período
+              {newCustomers === 0 ? "Nenhum cliente ainda" : "Base total no CRM"}
             </p>
           </div>
 
@@ -41,8 +118,8 @@ export function StatisticsOthers({ tab }: { tab: StatSubTab }) {
               <span className="text-xs font-semibold text-gray-700">Clientes recorrentes</span>
               <UserCheck className="h-4 w-4 text-[#0066d6]" />
             </div>
-            <div className="mt-3 text-3xl font-bold text-gray-900">0</div>
-            <p className="mt-2 text-[11px] text-gray-400">Nenhum cliente recorrente</p>
+            <div className="mt-3 text-3xl font-bold text-gray-900">{recurring}</div>
+            <p className="mt-2 text-[11px] text-gray-400">Com 2 ou mais compras</p>
           </div>
 
           <div className="rounded-lg border border-[#e6e8ee] bg-white p-5 shadow-xs">
@@ -50,7 +127,7 @@ export function StatisticsOthers({ tab }: { tab: StatSubTab }) {
               <span className="text-xs font-semibold text-gray-700">Ticket médio geral</span>
               <TrendingUp className="h-4 w-4 text-emerald-600" />
             </div>
-            <div className="mt-3 text-3xl font-bold text-gray-900">R$ 0,00</div>
+            <div className="mt-3 text-3xl font-bold text-gray-900">{formatBRL(ticket)}</div>
             <p className="mt-2 text-[11px] text-gray-500">Média por pedido aprovado</p>
           </div>
         </div>
@@ -62,21 +139,28 @@ export function StatisticsOthers({ tab }: { tab: StatSubTab }) {
             </span>
             <MoreVertical className="h-4 w-4 text-gray-400" />
           </div>
-          <div className="mt-4 space-y-3 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-gray-700">Mercado Pago — Pix</span>
-              <span className="font-bold text-gray-900">0%</span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
-              <div className="h-full bg-[#0066d6] w-[0%]" />
-            </div>
-            <div className="flex items-center justify-between pt-2">
-              <span className="font-medium text-gray-700">Mercado Pago — Cartão de Crédito</span>
-              <span className="font-bold text-gray-900">0%</span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
-              <div className="h-full bg-emerald-500 w-[0%]" />
-            </div>
+          <div className="mt-4 space-y-4 text-xs">
+            {channels.length === 0 && (
+              <p className="text-gray-500">Nenhum pedido no período.</p>
+            )}
+            {channels.map(([label, count], index) => (
+              <div key={label}>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-gray-700">{label}</span>
+                  <span className="font-bold text-gray-900">
+                    {count} ({formatPercent(count, periodOrders.length)})
+                  </span>
+                </div>
+                <div className="mt-1 h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className={`h-full ${channelColors[index % channelColors.length]}`}
+                    style={{
+                      width: `${periodOrders.length ? (count / periodOrders.length) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -93,75 +177,33 @@ export function StatisticsOthers({ tab }: { tab: StatSubTab }) {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="rounded-lg border border-[#e6e8ee] bg-white p-5 shadow-xs">
-            <h2 className="text-sm font-semibold text-gray-800 border-b border-gray-100 pb-3">
-              Origem de tráfego
-            </h2>
-            <div className="mt-4 space-y-3 text-xs">
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span className="text-gray-700 font-medium">WhatsApp / Direto</span>
-                  <span className="font-bold text-gray-900">0 visitas (0%)</span>
-                </div>
-                <div className="h-2.5 w-full rounded-full bg-gray-100 overflow-hidden">
-                  <div className="h-full bg-[#0066d6] w-[0%]" />
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span className="text-gray-700 font-medium">
-                    Redes Sociais (Instagram/Facebook)
-                  </span>
-                  <span className="font-bold text-gray-900">0 visitas (0%)</span>
-                </div>
-                <div className="h-2.5 w-full rounded-full bg-gray-100 overflow-hidden">
-                  <div className="h-full bg-purple-600 w-[0%]" />
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span className="text-gray-700 font-medium">Busca Orgânica (Google)</span>
-                  <span className="font-bold text-gray-900">0 visitas (0%)</span>
-                </div>
-                <div className="h-2.5 w-full rounded-full bg-gray-100 overflow-hidden">
-                  <div className="h-full bg-emerald-500 w-[0%]" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-[#e6e8ee] bg-white p-5 shadow-xs">
-            <h2 className="text-sm font-semibold text-gray-800 border-b border-gray-100 pb-3">
-              Dispositivos utilizados
-            </h2>
-            <div className="mt-4 space-y-3 text-xs">
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span className="text-gray-700 font-medium">Celular (Mobile)</span>
-                  <span className="font-bold text-gray-900">0 visitas (0%)</span>
-                </div>
-                <div className="h-2.5 w-full rounded-full bg-gray-100 overflow-hidden">
-                  <div className="h-full bg-[#0066d6] w-[0%]" />
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span className="text-gray-700 font-medium">Computador (Desktop)</span>
-                  <span className="font-bold text-gray-900">0 visitas (0%)</span>
-                </div>
-                <div className="h-2.5 w-full rounded-full bg-gray-100 overflow-hidden">
-                  <div className="h-full bg-gray-400 w-[0%]" />
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center shadow-xs">
+          <Radio className="mx-auto h-8 w-8 text-gray-300" />
+          <h2 className="mt-3 text-base font-bold text-gray-800">
+            Rastreamento de visitas ainda não instalado
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-gray-500">
+            Para ver origem de tráfego e dispositivos, conecte uma ferramenta de analytics
+            (ex.: Google Analytics ou Meta Pixel) ao site. Enquanto isso, as vendas e os
+            pedidos já alimentam as demais abas de estatísticas.
+          </p>
         </div>
       </div>
     );
   }
 
   if (tab === "tempo-real") {
+    const today = new Date().toLocaleDateString("pt-BR");
+    const todayOrders = orders.filter((o) => o.date === today);
+    const todayRevenue = todayOrders
+      .filter((o) => o.paymentStatus === "Recebido")
+      .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const unreadMessages = messages.filter((m) => m.status === "Não respondida").length;
+    const pendingShipments = orders.filter((o) => {
+      const stage = (o.fulfillmentStatus as string) || "";
+      return stage === "recebido" || stage === "preparando" || (!stage && o.shippingStatus !== "Enviada");
+    }).length;
+
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -174,35 +216,36 @@ export function StatisticsOthers({ tab }: { tab: StatSubTab }) {
               Tempo real
             </h1>
             <p className="mt-1 text-xs text-gray-500">
-              Visitantes ativos navegando na sua loja neste exato momento.
+              Atividade da sua loja hoje, atualizada na hora.
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-lg border border-[#e6e8ee] bg-white p-5 shadow-xs">
-            <span className="text-xs font-semibold text-gray-700">Usuários ativos agora</span>
-            <div className="mt-3 text-4xl font-black text-gray-400">0</div>
-            <p className="mt-1 text-[11px] text-gray-500">Nenhum visitante ativo agora</p>
+            <span className="text-xs font-semibold text-gray-700">Pedidos de hoje</span>
+            <div className="mt-3 text-4xl font-black text-gray-900">{todayOrders.length}</div>
+            <p className="mt-1 text-[11px] text-gray-500">
+              {formatBRL(todayRevenue)} em pagos hoje
+            </p>
           </div>
           <div className="rounded-lg border border-[#e6e8ee] bg-white p-5 shadow-xs">
-            <span className="text-xs font-semibold text-gray-700">Páginas por minuto</span>
-            <div className="mt-3 text-4xl font-black text-gray-400">0</div>
-            <p className="mt-1 text-[11px] text-gray-500">Visualizações no último minuto</p>
+            <span className="text-xs font-semibold text-gray-700">Aguardando envio</span>
+            <div className="mt-3 text-4xl font-black text-gray-900">{pendingShipments}</div>
+            <p className="mt-1 text-[11px] text-gray-500">Pedidos recebidos/preparando</p>
           </div>
           <div className="rounded-lg border border-[#e6e8ee] bg-white p-5 shadow-xs">
-            <span className="text-xs font-semibold text-gray-700">Carrinhos ativos</span>
-            <div className="mt-3 text-4xl font-black text-gray-400">0</div>
-            <p className="mt-1 text-[11px] text-gray-500">Itens aguardando finalização</p>
+            <span className="text-xs font-semibold text-gray-700">Mensagens sem resposta</span>
+            <div className="mt-3 text-4xl font-black text-gray-900">{unreadMessages}</div>
+            <p className="mt-1 text-[11px] text-gray-500">Na aba Mensagens</p>
           </div>
         </div>
       </div>
     );
   }
 
-  // Relatório de cupons
-  const coupons = getAdminCoupons();
-  const totalUses = coupons.reduce((sum, c) => sum + (c.usedCount || 0), 0);
+  // Relatório de cupons (dados ao vivo do Firestore)
+  const totalUses = coupons.reduce((sum, c) => sum + (Number(c.usedCount) || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -242,7 +285,7 @@ export function StatisticsOthers({ tab }: { tab: StatSubTab }) {
             <TrendingUp className="h-4 w-4 text-purple-600" />
           </div>
           <div className="mt-3 text-2xl font-bold text-gray-900">
-            {coupons.slice().sort((a, b) => b.usedCount - a.usedCount)[0]?.code || "—"}
+            {coupons.slice().sort((a, b) => (b.usedCount || 0) - (a.usedCount || 0))[0]?.code || "—"}
           </div>
           <p className="mt-1 text-xs text-gray-500">Maior taxa de conversão</p>
         </div>
@@ -291,7 +334,7 @@ export function StatisticsOthers({ tab }: { tab: StatSubTab }) {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                    {coupon.usedCount}
+                    {coupon.usedCount || 0}
                   </td>
                 </tr>
               ))

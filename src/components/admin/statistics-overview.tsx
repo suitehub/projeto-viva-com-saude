@@ -1,18 +1,22 @@
-import { useState, useEffect } from "react";
-import { Clock, ExternalLink, Info, MoreVertical } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Clock, Info, MoreVertical } from "lucide-react";
 import {
   SaleOrder,
   getCachedOrders,
   subscribeAdminOrders,
-  AbandonedCartItem,
-  getCachedAbandonedCarts,
-  subscribeAbandonedCarts,
+  getFulfillment,
 } from "@/data/admin-orders-data";
 import {
-  AdminCustomerItem,
   getCachedAdminCustomers,
   subscribeAdminCustomers,
 } from "@/data/admin-customers-data";
+import {
+  inPeriod,
+  formatBRL,
+  formatPercent,
+  axisTicks,
+  type StatsPeriod,
+} from "@/lib/stats";
 
 // SVG Smooth Wave Generator for sparklines matching Nuvemshop exactly
 function SparklineWave({ type = "wave" }: { type?: "wave" | "peak" }) {
@@ -76,65 +80,99 @@ function SparklineWave({ type = "wave" }: { type?: "wave" | "peak" }) {
   );
 }
 
+function FunnelBar({ label, count, max }: { label: string; count: number; max: number }) {
+  const percent = max > 0 ? Math.min(100, Math.round((count / max) * 100)) : 0;
+  return (
+    <div className="grid grid-cols-12 items-center gap-3 text-xs">
+      <div className="col-span-5 text-right text-gray-600 font-medium truncate">{label}</div>
+      <div className="col-span-6">
+        <div className="h-6 w-full rounded-xs bg-gray-100 relative overflow-hidden">
+          <div
+            className="h-full bg-[#0066d6] transition-all duration-500 rounded-xs"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+      </div>
+      <div className="col-span-1 text-left font-bold text-gray-800">{count}</div>
+    </div>
+  );
+}
+
 export function StatisticsOverview() {
-  const [period, setPeriod] = useState("30dias");
+  const [period, setPeriod] = useState<StatsPeriod>("30dias");
   const [orders, setOrders] = useState<SaleOrder[]>(() => getCachedOrders());
-  const [customers, setCustomers] = useState<AdminCustomerItem[]>(() => getCachedAdminCustomers());
-  const [carts, setCarts] = useState<AbandonedCartItem[]>(() => getCachedAbandonedCarts());
+  const [customerCount, setCustomerCount] = useState(
+    () => getCachedAdminCustomers().length,
+  );
 
   useEffect(() => {
     const unsubOrders = subscribeAdminOrders(setOrders);
-    const unsubCust = subscribeAdminCustomers(setCustomers);
-    const unsubCarts = subscribeAbandonedCarts(setCarts);
+    const unsubCust = subscribeAdminCustomers((loaded) => setCustomerCount(loaded.length));
     return () => {
       unsubOrders();
       unsubCust();
-      unsubCarts();
     };
   }, []);
 
-  // Compute live metrics
-  const totalSalesCount = orders.length;
-  const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-  const averageTicket = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
-  const estimatedVisits = Math.max(
-    customers.length * 3 + totalSalesCount * 4 + carts.length * 2,
-    0,
+  const periodOrders = useMemo(
+    () => orders.filter((o) => inPeriod(o.date, period)),
+    [orders, period],
   );
 
-  // Visitor funnel data
-  const visitorFunnel = [
-    { label: "Total de visitas", count: estimatedVisits || 1, max: Math.max(estimatedVisits, 1) },
-    {
-      label: "Visualização de categoria",
-      count: Math.round(estimatedVisits * 0.7),
-      max: Math.max(estimatedVisits, 1),
-    },
-    {
-      label: "Visualização de produto",
-      count: Math.round(estimatedVisits * 0.5),
-      max: Math.max(estimatedVisits, 1),
-    },
-    {
-      label: "Carrinhos criados",
-      count: carts.length + totalSalesCount,
-      max: Math.max(estimatedVisits, 1),
-    },
-  ];
+  const paidOrders = useMemo(
+    () => periodOrders.filter((o) => o.paymentStatus === "Recebido"),
+    [periodOrders],
+  );
 
-  // Checkout funnel data
-  const checkoutBase = Math.max(carts.length + totalSalesCount, 1);
-  const checkoutFunnel = [
-    { label: "Checkout iniciado", count: carts.length + totalSalesCount, max: checkoutBase },
-    { label: "Etapa de entrega", count: Math.round(totalSalesCount * 1.1), max: checkoutBase },
-    { label: "Etapa de pagamento", count: Math.round(totalSalesCount * 1.05), max: checkoutBase },
-    { label: "Pedidos criados", count: totalSalesCount, max: checkoutBase },
-    {
-      label: "Pedidos pagos",
-      count: orders.filter((o) => o.paymentStatus === "Recebido").length,
-      max: checkoutBase,
-    },
-  ];
+  const totalSalesCount = periodOrders.length;
+  const totalRevenue = useMemo(
+    () => paidOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0),
+    [paidOrders],
+  );
+  const averageTicket = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
+  const approvalRate = formatPercent(paidOrders.length, totalSalesCount);
+
+  const paymentSplit = useMemo(() => {
+    const counts = { Recebido: 0, Pendente: 0, Recusado: 0 };
+    for (const o of periodOrders) {
+      if (o.paymentStatus === "Recebido") counts.Recebido += 1;
+      else if (o.paymentStatus === "Pendente") counts.Pendente += 1;
+      else counts.Recusado += 1;
+    }
+    return [
+      { label: "Pagos", count: counts.Recebido },
+      { label: "Pendentes", count: counts.Pendente },
+      { label: "Recusados", count: counts.Recusado },
+    ];
+  }, [periodOrders]);
+  const paymentMax = Math.max(1, ...paymentSplit.map((s) => s.count));
+
+  const fulfillmentSplit = useMemo(() => {
+    const counts: Record<string, number> = {
+      recebido: 0,
+      preparando: 0,
+      enviado: 0,
+      entregue: 0,
+      cancelado: 0,
+    };
+    for (const o of periodOrders) {
+      const stage = getFulfillment(o);
+      counts[stage] = (counts[stage] || 0) + 1;
+    }
+    return [
+      { label: "Pedido recebido", count: counts.recebido },
+      { label: "Preparando envio", count: counts.preparando },
+      { label: "Enviado", count: counts.enviado },
+      { label: "Entregue", count: counts.entregue },
+      { label: "Cancelado", count: counts.cancelado },
+    ];
+  }, [periodOrders]);
+  const fulfillmentMax = Math.max(1, ...fulfillmentSplit.map((s) => s.count));
+
+  const avgItems =
+    totalSalesCount > 0
+      ? periodOrders.reduce((sum, o) => sum + (Number(o.itemsCount) || 0), 0) / totalSalesCount
+      : 0;
 
   return (
     <div className="space-y-6">
@@ -159,7 +197,7 @@ export function StatisticsOverview() {
 
           <select
             value={period}
-            onChange={(e) => setPeriod(e.target.value)}
+            onChange={(e) => setPeriod(e.target.value as StatsPeriod)}
             className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-xs focus:border-[#0066d6] focus:outline-none"
           >
             <option value="hoje">Hoje</option>
@@ -167,34 +205,18 @@ export function StatisticsOverview() {
             <option value="7dias">Últimos 7 dias</option>
             <option value="30dias">Últimos 30 dias</option>
             <option value="este-mes">Este mês</option>
+            <option value="tudo">Tudo</option>
           </select>
         </div>
       </div>
 
       {/* Top 4 Metrics Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1: Visitas */}
+        {/* Card 1: Pedidos */}
         <div className="rounded-lg border border-[#e6e8ee] bg-white p-4 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-              <span>Visitas</span>
-              <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 cursor-pointer" />
-            </div>
-            <button className="text-gray-400 hover:text-gray-600">
-              <MoreVertical className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="mt-3">
-            <div className="text-3xl font-bold text-gray-900">{estimatedVisits}</div>
-          </div>
-          <SparklineWave type="wave" />
-        </div>
-
-        {/* Card 2: Vendas */}
-        <div className="rounded-lg border border-[#e6e8ee] bg-white p-4 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-              <span>Vendas</span>
+              <span>Pedidos</span>
               <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 cursor-pointer" />
             </div>
             <button className="text-gray-400 hover:text-gray-600">
@@ -204,14 +226,14 @@ export function StatisticsOverview() {
           <div className="mt-3">
             <div className="text-3xl font-bold text-gray-900">{totalSalesCount}</div>
           </div>
-          <SparklineWave type="peak" />
+          <SparklineWave type="wave" />
         </div>
 
-        {/* Card 3: Receita */}
+        {/* Card 2: Receita paga */}
         <div className="rounded-lg border border-[#e6e8ee] bg-white p-4 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-              <span>Receita</span>
+              <span>Receita (pagos)</span>
               <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 cursor-pointer" />
             </div>
             <button className="text-gray-400 hover:text-gray-600">
@@ -219,14 +241,12 @@ export function StatisticsOverview() {
             </button>
           </div>
           <div className="mt-3">
-            <div className="text-3xl font-bold text-gray-900">
-              R$ {totalRevenue.toFixed(2).replace(".", ",")}
-            </div>
+            <div className="text-3xl font-bold text-gray-900">{formatBRL(totalRevenue)}</div>
           </div>
           <SparklineWave type="peak" />
         </div>
 
-        {/* Card 4: Ticket médio */}
+        {/* Card 3: Ticket médio */}
         <div className="rounded-lg border border-[#e6e8ee] bg-white p-4 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
@@ -238,9 +258,24 @@ export function StatisticsOverview() {
             </button>
           </div>
           <div className="mt-3">
-            <div className="text-3xl font-bold text-gray-900">
-              R$ {averageTicket.toFixed(2).replace(".", ",")}
+            <div className="text-3xl font-bold text-gray-900">{formatBRL(averageTicket)}</div>
+          </div>
+          <SparklineWave type="peak" />
+        </div>
+
+        {/* Card 4: Clientes */}
+        <div className="rounded-lg border border-[#e6e8ee] bg-white p-4 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+              <span>Clientes</span>
+              <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 cursor-pointer" />
             </div>
+            <button className="text-gray-400 hover:text-gray-600">
+              <MoreVertical className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="mt-3">
+            <div className="text-3xl font-bold text-gray-900">{customerCount}</div>
           </div>
           <SparklineWave type="peak" />
         </div>
@@ -248,13 +283,13 @@ export function StatisticsOverview() {
 
       {/* Funnel and Conversion Section */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Left Column: Horizontal Funnels (8 cols on lg) */}
+        {/* Left Column: Funnels (8 cols on lg) */}
         <div className="space-y-6 lg:col-span-8">
-          {/* Card: Comportamento dos visitantes */}
+          {/* Card: Pedidos por pagamento */}
           <div className="rounded-lg border border-[#e6e8ee] bg-white p-5 shadow-xs">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
-                <span>Comportamento dos visitantes</span>
+                <span>Pedidos por pagamento</span>
                 <Info className="h-3.5 w-3.5 text-gray-400" />
               </div>
               <button className="text-gray-400 hover:text-gray-600">
@@ -263,47 +298,26 @@ export function StatisticsOverview() {
             </div>
 
             <div className="mt-5 space-y-4">
-              {visitorFunnel.map((item) => {
-                const percent = Math.round((item.count / item.max) * 100);
-                return (
-                  <div key={item.label} className="grid grid-cols-12 items-center gap-3 text-xs">
-                    <div className="col-span-5 text-right text-gray-600 font-medium truncate">
-                      {item.label}
-                    </div>
-                    <div className="col-span-6">
-                      <div className="h-6 w-full rounded-xs bg-gray-100 relative overflow-hidden">
-                        <div
-                          className="h-full bg-[#0066d6] transition-all duration-500 rounded-xs"
-                          style={{ width: `${Math.max(percent, 0)}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div className="col-span-1 text-left font-bold text-gray-800">{item.count}</div>
-                  </div>
-                );
-              })}
+              {paymentSplit.map((item) => (
+                <FunnelBar key={item.label} label={item.label} count={item.count} max={paymentMax} />
+              ))}
 
-              {/* Chart X-axis scale */}
               <div className="grid grid-cols-12 items-center gap-3 pt-2 text-[10px] text-gray-400 border-t border-gray-100">
                 <div className="col-span-5"></div>
                 <div className="col-span-7 flex justify-between pr-4">
-                  <span>0</span>
-                  <span>10</span>
-                  <span>20</span>
-                  <span>30</span>
-                  <span>40</span>
-                  <span>50</span>
-                  <span>60</span>
+                  {axisTicks(paymentMax).map((tick) => (
+                    <span key={tick}>{tick}</span>
+                  ))}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Card: Comportamento no checkout */}
+          {/* Card: Etapas de atendimento */}
           <div className="rounded-lg border border-[#e6e8ee] bg-white p-5 shadow-xs">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
-                <span>Comportamento no checkout</span>
+                <span>Etapas de atendimento</span>
                 <Info className="h-3.5 w-3.5 text-gray-400" />
               </div>
               <button className="text-gray-400 hover:text-gray-600">
@@ -312,35 +326,16 @@ export function StatisticsOverview() {
             </div>
 
             <div className="mt-5 space-y-4">
-              {checkoutFunnel.map((item) => {
-                const percent = Math.round((item.count / item.max) * 100);
-                return (
-                  <div key={item.label} className="grid grid-cols-12 items-center gap-3 text-xs">
-                    <div className="col-span-5 text-right text-gray-600 font-medium truncate">
-                      {item.label}
-                    </div>
-                    <div className="col-span-6">
-                      <div className="h-6 w-full rounded-xs bg-gray-100 relative overflow-hidden">
-                        <div
-                          className="h-full bg-[#0066d6] transition-all duration-500 rounded-xs"
-                          style={{ width: `${Math.max(percent, 0)}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div className="col-span-1 text-left font-bold text-gray-800">{item.count}</div>
-                  </div>
-                );
-              })}
+              {fulfillmentSplit.map((item) => (
+                <FunnelBar key={item.label} label={item.label} count={item.count} max={fulfillmentMax} />
+              ))}
 
-              {/* Chart X-axis scale */}
               <div className="grid grid-cols-12 items-center gap-3 pt-2 text-[10px] text-gray-400 border-t border-gray-100">
                 <div className="col-span-5"></div>
                 <div className="col-span-7 flex justify-between pr-4">
-                  <span>0</span>
-                  <span>1</span>
-                  <span>1</span>
-                  <span>2</span>
-                  <span>2</span>
+                  {axisTicks(fulfillmentMax).map((tick) => (
+                    <span key={tick}>{tick}</span>
+                  ))}
                 </div>
               </div>
             </div>
@@ -349,63 +344,53 @@ export function StatisticsOverview() {
 
         {/* Right Column: Conversion Metrics (4 cols on lg) */}
         <div className="space-y-6 lg:col-span-4">
-          {/* Card: Visitas a vendas */}
+          {/* Card: Taxa de aprovação */}
           <div className="rounded-lg border border-[#e6e8ee] bg-white p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-                <span>Visitas a vendas</span>
+                <span>Taxa de aprovação</span>
                 <Info className="h-3.5 w-3.5 text-gray-400" />
               </div>
               <button className="text-gray-400 hover:text-gray-600">
                 <MoreVertical className="h-4 w-4" />
               </button>
             </div>
-            <div className="mt-2 text-2xl font-bold text-gray-900">0,00%</div>
+            <div className="mt-2 text-2xl font-bold text-gray-900">{approvalRate}</div>
             <SparklineWave type="peak" />
           </div>
 
-          {/* Card: Visitas a carrinhos criados */}
+          {/* Card: Itens por pedido */}
           <div className="rounded-lg border border-[#e6e8ee] bg-white p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-                <span>Visitas a carrinhos criados</span>
+                <span>Itens por pedido</span>
                 <Info className="h-3.5 w-3.5 text-gray-400" />
               </div>
               <button className="text-gray-400 hover:text-gray-600">
                 <MoreVertical className="h-4 w-4" />
               </button>
             </div>
-            <div className="mt-2 text-2xl font-bold text-gray-900">0,00%</div>
+            <div className="mt-2 text-2xl font-bold text-gray-900">
+              {avgItems.toFixed(1).replace(".", ",")}
+            </div>
             <SparklineWave type="peak" />
           </div>
 
-          {/* Card: Checkouts iniciados vendas */}
+          {/* Card: Pedidos pagos */}
           <div className="rounded-lg border border-[#e6e8ee] bg-white p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-                <span>Checkouts iniciados vendas</span>
+                <span>Pedidos pagos</span>
                 <Info className="h-3.5 w-3.5 text-gray-400" />
               </div>
               <button className="text-gray-400 hover:text-gray-600">
                 <MoreVertical className="h-4 w-4" />
               </button>
             </div>
-            <div className="mt-2 text-2xl font-bold text-gray-900">0,00%</div>
+            <div className="mt-2 text-2xl font-bold text-gray-900">{paidOrders.length}</div>
             <SparklineWave type="peak" />
           </div>
         </div>
-      </div>
-
-      {/* Footer Link */}
-      <div className="pt-4 flex justify-center">
-        <a
-          href="#estatisticas"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-[#0066d6] hover:underline"
-        >
-          <Info className="h-4 w-4" />
-          <span>Mais sobre estatísticas</span>
-          <ExternalLink className="h-3 w-3" />
-        </a>
       </div>
     </div>
   );
