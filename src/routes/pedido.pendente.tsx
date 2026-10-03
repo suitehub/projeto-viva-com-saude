@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/data/cart";
 import { useStoreProducts } from "@/data/all-store-products";
 import { BACKEND_URL } from "@/lib/backend";
+import { auth } from "@/lib/firebase";
 
 export const Route = createFileRoute("/pedido/pendente")({
   ssr: false,
@@ -26,8 +27,15 @@ function OrderPendingPage() {
     const paymentId =
       params.get("payment_id") || params.get("collection_id") || params.get("collectionId");
     if (!paymentId) return;
-    fetch(`${BACKEND_URL}/api/confirmar-pedido?payment_id=${encodeURIComponent(paymentId)}`)
-      .then((res) => res.json().catch(() => ({})))
+    auth.currentUser
+      ?.getIdToken()
+      .catch(() => null)
+      .then((idToken) =>
+        fetch(`${BACKEND_URL}/api/confirmar-pedido?payment_id=${encodeURIComponent(paymentId)}`, {
+          headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+        }),
+      )
+      .then((res) => (res ? res.json().catch(() => ({})) : {}))
       .then((data: { orderNumber?: string }) => {
         if (data.orderNumber) setOrderNumber(data.orderNumber);
       })

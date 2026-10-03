@@ -5,6 +5,7 @@ import { SiteFooter, SiteHeader, TopBar, WhatsAppFab } from "@/components/site-c
 import { Button } from "@/components/ui/button";
 import { clearCart } from "@/data/cart";
 import { BACKEND_URL } from "@/lib/backend";
+import { auth } from "@/lib/firebase";
 
 export const Route = createFileRoute("/pedido/sucesso")({
   ssr: false,
@@ -28,8 +29,10 @@ function OrderSuccessPage() {
       return;
     }
     try {
+      const idToken = await auth.currentUser?.getIdToken().catch(() => null);
       const res = await fetch(
         `${BACKEND_URL}/api/confirmar-pedido?payment_id=${encodeURIComponent(paymentId)}`,
+        idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : undefined,
       );
       const data = (await res.json().catch(() => ({}))) as {
         orderNumber?: string;

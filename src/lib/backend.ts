@@ -8,12 +8,14 @@ export const BACKEND_URL = (
 
 export interface BackendCartItem {
   id: string;
-  name: string;
   qty: number;
-  unitPrice: number;
-  imageUrl?: string;
-  categoriesList?: string[];
-  discount?: number;
+}
+
+export interface CreatePreferenceInput {
+  items: BackendCartItem[];
+  freightId: string;
+  email: string;
+  couponCode?: string;
 }
 
 export interface CreatePreferenceResponse {
@@ -26,14 +28,11 @@ export interface CreatePreferenceResponse {
 
 /**
  * Cria a preferência do Checkout Pro e devolve a URL de pagamento.
+ * Envia só ids+quantidades: preço, frete e cupom são calculados no servidor.
  */
-export async function createMercadoPagoPreference(input: {
-  items: BackendCartItem[];
-  freightPrice: number;
-  freightLabel: string;
-  email: string;
-  couponCode?: string;
-}): Promise<CreatePreferenceResponse> {
+export async function createMercadoPagoPreference(
+  input: CreatePreferenceInput,
+): Promise<CreatePreferenceResponse> {
   const res = await fetch(`${BACKEND_URL}/api/criar-preferencia`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

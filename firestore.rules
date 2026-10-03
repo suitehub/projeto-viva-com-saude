@@ -102,6 +102,7 @@ service cloud.firestore {
 
     function isValidCustomerMessage(data) {
       return data.keys().hasAll(['id', 'senderName', 'senderEmail', 'content', 'status']) &&
+        data.keys().hasOnly(['id', 'senderName', 'senderEmail', 'senderPhone', 'type', 'subject', 'content', 'date', 'status', 'orderNumber', 'trackingCode']) &&
         data.id is string && data.id.size() > 0 && data.id.size() <= 64 &&
         data.senderName is string && data.senderName.size() > 0 && data.senderName.size() <= 120 &&
         data.senderEmail is string && data.senderEmail.size() > 0 && data.senderEmail.size() <= 120 &&
@@ -110,11 +111,13 @@ service cloud.firestore {
     }
 
     function isValidOrder(data) {
-      return data.keys().hasAll(['id', 'orderNumber', 'total', 'customer']) &&
+      return data.keys().hasAll(['id', 'orderNumber', 'total', 'customer', 'email']) &&
+        data.keys().hasOnly(['id', 'orderNumber', 'date', 'customer', 'email', 'phone', 'total', 'totalFormatted', 'itemsCount', 'products', 'paymentStatus', 'paymentMethod', 'shippingStatus', 'shippingCarrier', 'statusFilter', 'fulfillmentStatus', 'notes', 'mpPaymentId', 'mpStatus', 'updatedAt', 'userId']) &&
         data.id is string && data.id.size() > 0 && data.id.size() <= 64 &&
         data.orderNumber is string && data.orderNumber.size() > 0 && data.orderNumber.size() <= 40 &&
         data.total is number && data.total >= 0 &&
-        data.customer is string && data.customer.size() > 0 && data.customer.size() <= 150;
+        data.customer is string && data.customer.size() > 0 && data.customer.size() <= 150 &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 120;
     }
 
     function isValidAbandonedCart(data) {
@@ -166,8 +169,11 @@ service cloud.firestore {
     }
 
     // --- 5. Discount Coupons Collection ---
+    // Leitura pública SOMENTE de cupom ativo por código (get direto, sem listar).
+    // Listar todos e gerenciar é só admin — impede garimpo de códigos.
     match /coupons/{couponId} {
-      allow read: if true;
+      allow get: if isAdmin() || resource.data.active == true;
+      allow list: if isAdmin();
       allow create, update: if isAdmin() && isValidId(couponId) && isValidCoupon(incoming());
       allow delete: if isAdmin() && isValidId(couponId);
     }
@@ -180,18 +186,19 @@ service cloud.firestore {
     }
 
     // --- 7. Customer Messages Collection ---
+    // Criação pública sempre nasce "Não respondida" (resposta é só admin).
     match /messages/{messageId} {
       allow read: if isAdmin();
-      allow create: if isValidId(messageId) && isValidCustomerMessage(incoming());
+      allow create: if isValidId(messageId) && isValidCustomerMessage(incoming()) && incoming().status == 'Não respondida';
       allow update, delete: if isAdmin() && isValidId(messageId);
     }
 
     // --- 8. Sales / Orders Collection ---
     // Leitura: admin OU o próprio comprador (e-mail do Auth == e-mail do pedido).
-    // Escrita: qualquer um cria (checkout); só admin altera/exclui.
+    // Criação direta nasce pendente/recebido-inicial (checkout real usa Admin SDK).
     match /orders/{orderId} {
       allow read: if isAdmin() || (isSignedIn() && resource.data.email == request.auth.token.email.lower());
-      allow create: if isValidId(orderId) && isValidOrder(incoming());
+      allow create: if isValidId(orderId) && isValidOrder(incoming()) && incoming().paymentStatus == 'Pendente' && incoming().fulfillmentStatus == 'recebido';
       allow update, delete: if isAdmin() && isValidId(orderId);
     }
 

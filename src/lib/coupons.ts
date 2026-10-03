@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import type { DiscountCoupon } from "./admin-discounts-data";
 
@@ -18,14 +18,19 @@ export interface CouponCheck {
   freeShipping: boolean;
 }
 
-/** Busca o cupom pelo código (leitura pública) para validar no checkout. */
+/** Busca o cupom pelo código via get direto (só ativos são legíveis). */
 export async function fetchCouponByCode(code: string): Promise<DiscountCoupon | null> {
   const normalized = code.trim().toUpperCase();
   if (!normalized) return null;
-  const snap = await getDocs(query(collection(db, "coupons"), where("code", "==", normalized)));
-  if (snap.empty) return null;
-  const docSnap = snap.docs[0];
-  return { ...(docSnap.data() as DiscountCoupon), id: docSnap.id };
+  try {
+    const snap = await getDoc(doc(db, "coupons", normalized));
+    if (!snap.exists()) return null;
+    const coupon = { ...(snap.data() as DiscountCoupon), id: snap.id };
+    if (!coupon.active) return null;
+    return coupon;
+  } catch {
+    return null;
+  }
 }
 
 function todayISO(): string {

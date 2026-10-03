@@ -208,20 +208,12 @@ function CheckoutPage() {
     };
 
     // Cria a preferência do Checkout Pro e redireciona ao Mercado Pago.
+    // O servidor recalcula tudo (preços do catálogo, frete, cupom).
     setIsPaying(true);
     try {
       const payment = await createMercadoPagoPreference({
-        items: payload.items.map((item) => {
-          const full = items.find((i) => String(i.product.id) === item.id);
-          return {
-            ...item,
-            imageUrl: full?.product.imageUrl,
-            categoriesList: full?.product.categoriesList,
-            discount: full?.product.discount,
-          };
-        }),
-        freightPrice: effectiveFreightPrice,
-        freightLabel: freight.label,
+        items: payload.items.map((item) => ({ id: item.id, qty: item.qty })),
+        freightId: freight.id,
         email: payload.customer.email,
         couponCode: appliedCoupon?.coupon.code,
       });

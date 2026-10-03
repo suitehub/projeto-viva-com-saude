@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, deleteDoc, onSnapshot, query } from "firebase/firestore";
+import { collection, doc, getDoc, setDoc, deleteDoc, onSnapshot, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { cleanFirestorePayload } from "@/lib/firestore-utils";
 
@@ -106,24 +106,33 @@ export function subscribeAdminCoupons(callback: (coupons: DiscountCoupon[]) => v
 }
 
 /**
- * Salva ou atualiza um cupom no Firestore
+ * Salva ou atualiza um cupom no Firestore.
+ * O documento usa o CÓDIGO como ID — permite validação pública por get
+ * direto sem listar a coleção (ver regras).
  */
 export async function saveAdminCouponToFirestore(coupon: DiscountCoupon): Promise<void> {
-  const docRef = doc(db, "coupons", coupon.id);
+  const code = coupon.code.toUpperCase().trim();
+  const docRef = doc(db, "coupons", code);
   const payload = cleanFirestorePayload({
     ...coupon,
-    code: coupon.code.toUpperCase().trim(),
+    id: code,
+    code,
     createdAt: coupon.createdAt || new Date().toISOString(),
   });
 
   await setDoc(docRef, payload, { merge: true });
 
+  // Migração: remove documento antigo se o ID não era o código
+  if (coupon.id && coupon.id !== code) {
+    await deleteDoc(doc(db, "coupons", coupon.id)).catch(() => {});
+  }
+
   // Update local cache
   const current = getAdminCoupons();
-  const exists = current.some((c) => c.id === coupon.id);
+  const exists = current.some((c) => c.id === code);
   const updated = exists
-    ? current.map((c) => (c.id === coupon.id ? coupon : c))
-    : [coupon, ...current];
+    ? current.map((c) => (c.id === code ? { ...coupon, id: code, code } : c))
+    : [{ ...coupon, id: code, code }, ...current];
   saveAdminCoupons(updated);
 }
 
