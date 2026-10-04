@@ -7,9 +7,23 @@ import type { Product } from "./products";
 export type CartMap = Record<string, number>;
 
 const STORAGE_KEY = "pvcs_cart";
+const STORAGE_UPDATED_KEY = "pvcs_cart_updated";
 const CART_EVENT = "pvcs_cart_change";
 const CART_DOC_ID = "active";
 const MAX_QTY_PER_ITEM = 99;
+
+/** UIDs já sincronizados nesta sessão (vale para todas as instâncias do hook). */
+const syncedUids = new Set<string>();
+
+/** Reseta a sincronia (usado no logout). */
+export function resetCartSync(): void {
+  syncedUids.clear();
+}
+
+function readCartUpdatedAt(): number {
+  if (typeof window === "undefined") return 0;
+  return Number(localStorage.getItem(STORAGE_UPDATED_KEY)) || 0;
+}
 
 export interface FreightOption {
   id: string;
@@ -49,6 +63,7 @@ function writeCart(cart: CartMap): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cart));
+    localStorage.setItem(STORAGE_UPDATED_KEY, String(Date.now()));
     window.dispatchEvent(new Event(CART_EVENT));
   } catch {
     // ignore
@@ -129,12 +144,15 @@ export async function pushCartToFirestore(uid: string, cart: CartMap): Promise<v
   );
 }
 
-/** Baixa o carrinho da nuvem (só logado). */
-export async function pullCartFromFirestore(uid: string): Promise<CartMap> {
+/** Baixa o carrinho da nuvem com carimbo de tempo (só logado). */
+export async function pullCartFromFirestore(
+  uid: string,
+): Promise<{ cart: CartMap; updatedAt: number }> {
   const snap = await getDoc(doc(db, "users", uid, "carts", CART_DOC_ID));
-  if (!snap.exists()) return {};
-  const data = snap.data() as { items?: unknown };
-  return remoteItemsToCart(data.items);
+  if (!snap.exists()) return { cart: {}, updatedAt: 0 };
+  const data = snap.data() as { items?: unknown; updatedAt?: unknown };
+  const updatedAt = new Date(String(data.updatedAt || 0)).getTime() || 0;
+  return { cart: remoteItemsToCart(data.items), updatedAt };
 }
 
 export function getCartCount(cart?: CartMap): number {
@@ -164,7 +182,6 @@ export function getCartItems(products: Product[], cart?: CartMap): Array<{
 export function useCart(products: Product[] = []) {
   const [cart, setCartState] = useState<CartMap>(() => readCart());
   const [uid, setUid] = useState<string | null>(() => auth.currentUser?.uid || null);
-  const syncedUid = useRef<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -182,12 +199,37 @@ export function useCart(products: Product[] = []) {
     };
   }, []);
 
-  // Ao logar: junta carrinho local + nuvem (soma quantidades) e sincroniza.
+  // Sincronia login/nuvem (uma única vez por sessão por usuário):
+  // - primeira vez: soma local + nuvem (caso tenha comprado offline);
+  // - depois: vence o lado mais recente (sem somar de novo).
   useEffect(() => {
-    if (!uid || syncedUid.current === uid) return;
-    syncedUid.current = uid;
+    if (!uid) return;
+    if (syncedUids.has(uid)) {
+      pullCartFromFirestore(uid)
+        .then(({ cart: remote, updatedAt }) => {
+          const localUpdatedAt = readCartUpdatedAt();
+          if (updatedAt > localUpdatedAt) {
+            const current = readCart();
+            const same =
+              Object.keys(remote).length === Object.keys(current).length &&
+              Object.entries(remote).every(([key, qty]) => current[key] === qty);
+            if (!same) {
+              setCartState(remote);
+              try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+                localStorage.setItem(STORAGE_UPDATED_KEY, String(Date.now()));
+              } catch {
+                // ignore
+              }
+            }
+          }
+        })
+        .catch(() => {});
+      return;
+    }
+    syncedUids.add(uid);
     pullCartFromFirestore(uid)
-      .then((remote) => {
+      .then(({ cart: remote }) => {
         const local = readCart();
         const merged: CartMap = { ...remote };
         for (const [key, qty] of Object.entries(local)) {
@@ -202,7 +244,7 @@ export function useCart(products: Product[] = []) {
 
   // A cada mudança (logado e sincronizado): envia à nuvem com debounce.
   useEffect(() => {
-    if (!uid || syncedUid.current !== uid) return;
+    if (!uid || !syncedUids.has(uid)) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       pushCartToFirestore(uid, readCart()).catch(() => {});

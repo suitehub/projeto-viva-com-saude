@@ -13,7 +13,7 @@ import {
 } from "firebase/auth";
 import { auth, googleProvider, db } from "@/lib/firebase";
 import { doc, getDoc, deleteDoc } from "firebase/firestore";
-import { clearCart, clearRemoteCart } from "./cart";
+import { clearCart, clearRemoteCart, resetCartSync } from "./cart";
 
 export interface UserProfile {
   id: string;
@@ -291,6 +291,7 @@ export async function logoutUser(): Promise<void> {
     // Non-blocking
   }
   saveCurrentUser(null);
+  resetCartSync();
   clearCart();
 }
 
