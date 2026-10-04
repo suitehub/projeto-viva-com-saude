@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
+import { Route as EsquadraoRouteImport } from './routes/esquadrao'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const ProdutoSlugRoute = ProdutoSlugRouteImport.update({
   path: '/produto/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EsquadraoRoute = EsquadraoRouteImport.update({
+  id: '/esquadrao',
+  path: '/esquadrao',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/produto/$slug': typeof ProdutoSlugRoute
+  '/esquadrao': typeof EsquadraoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/produto/$slug': typeof ProdutoSlugRoute
+  '/esquadrao': typeof EsquadraoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/produto/$slug': typeof ProdutoSlugRoute
+  '/esquadrao': typeof EsquadraoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/produto/$slug'
+  fullPaths: '/' | '/produto/$slug' | '/esquadrao'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/produto/$slug'
-  id: '__root__' | '/' | '/produto/$slug'
+  to: '/' | '/produto/$slug' | '/esquadrao'
+  id: '__root__' | '/' | '/produto/$slug' | '/esquadrao'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProdutoSlugRoute: typeof ProdutoSlugRoute
+  EsquadraoRoute: typeof EsquadraoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProdutoSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/esquadrao': {
+      id: '/esquadrao'
+      path: '/esquadrao'
+      fullPath: '/esquadrao'
+      preLoaderRoute: typeof EsquadraoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProdutoSlugRoute: ProdutoSlugRoute,
+  EsquadraoRoute: EsquadraoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
