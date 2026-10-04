@@ -63,7 +63,7 @@ try {
   console.warn("⚠️ Aviso ao importar servidor SSR:", err.message);
 }
 
-const routesToRender = ["/", "/produtos", "/admin", "/conta", "/esquadrao"];
+const routesToRender = ["/", "/produtos", "/admin", "/conta"];
 
 const spaDecodeScript = `<script>(function(l){if(l.search[1]==='/'){var p=l.search.slice(1).split('&').map(function(s){return s.replace(/~and~/g,'&')}).join('?');window.history.replaceState(null,null,l.pathname.slice(0,-1)+p+l.hash);}})(window.location);</script>`;
 

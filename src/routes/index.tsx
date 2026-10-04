@@ -1,179 +1,1042 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Check, MessageCircle, MousePointerClick, Search, Sparkles, Zap } from "lucide-react";
-import { SEGMENTS } from "@/data/suitehub/segments";
-import { SITE } from "@/data/suitehub/site";
-import { HubFooter, HubNavbar, Reveal, SegmentCard } from "@/components/suitehub/hub-chrome";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  ArrowRight,
+  BadgeCheck,
+  ChevronDown,
+  CreditCard,
+  Flower2,
+  Heart,
+  HeartPulse,
+  Leaf,
+  Mail,
+  Menu,
+  MessageCircle,
+  Minus,
+  PackageCheck,
+  Plus,
+  Search,
+  ShieldCheck,
+  ShoppingCart,
+  Activity,
+  Sprout,
+  Truck,
+  X,
+} from "lucide-react";
+
+import heroMounjaro from "@/assets/hero-mounjaro.png";
+import heroMacaPeruana from "@/assets/hero-maca-peruana.png";
+import heroFiocaps from "@/assets/hero-fiocaps.png";
+import heroRilexMax from "@/assets/hero-rilex-max.png";
+import heroColagenoTipo2 from "@/assets/hero-colageno-tipo-2.png";
+import benefitsImage from "@/assets/viva-benefits.jpg";
+import productsImage from "@/assets/viva-products.jpg";
+import logoImage from "@/assets/logoprojeto.png";
+import { Button } from "@/components/ui/button";
+import { formatPrice } from "@/data/products";
+import { getAllStoreProducts, useStoreProducts, normalizeSearchText, isProductOutOfStock } from "@/data/all-store-products";
+import { useCart } from "@/data/cart";
+import { Input } from "@/components/ui/input";
+import { ContactMessageForm } from "@/components/contact-message-form";
+import { UserAccountDropdown } from "@/components/auth/user-account-dropdown";
+import { FavoritesHeaderButton } from "@/components/products/favorites-sheet";
+import { ProductFavoriteButton } from "@/components/products/product-favorite-button";
+import { useCurrentUser } from "@/data/user-auth";
+import { toast } from "sonner";
+import {
+  CustomerMessageItem,
+  INITIAL_ADMIN_MESSAGES,
+  saveCustomerMessageToFirestore,
+} from "@/data/admin-customers-data";
+import { useStoreSettings } from "@/hooks/use-store-settings";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/")({
+  ssr: false,
   head: () => ({
     meta: [
-      { title: "Suite Hub — Vitrine de Sites | Encontre o site ideal" },
-      { name: "description", content: "Explore experiências criadas pela Suite Hub para diferentes tipos de empresas. 9 segmentos, 27 conceitos navegáveis." },
+      { title: "Projeto Viva com Saúde | Produtos Naturais" },
+      {
+        name: "description",
+        content:
+          "Suplementos, fitoterápicos e produtos naturais para sua saúde, equilíbrio e bem-estar.",
+      },
+      { property: "og:title", content: "Projeto Viva com Saúde | Produtos Naturais" },
+      {
+        property: "og:description",
+        content: "Mais saúde para o seu dia a dia com produtos naturais selecionados.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: HubHome,
+  component: Index,
 });
 
-function HubHome() {
-  return (
-    <div className="min-h-screen bg-[#070b16] font-sans text-white antialiased">
-      <HubNavbar />
+const categories = [
+  { label: "Emagrecedores", icon: Leaf },
+  { label: "Coluna", icon: Activity },
+  { label: "Beleza e Bem Estar", icon: Flower2 },
+  { label: "Vitaminas", icon: BadgeCheck },
+  { label: "Detox", icon: Sprout },
+  { label: "Digestivo", icon: Leaf },
+  { label: "Sistema Circulatório", icon: HeartPulse },
+  { label: "Imunidade", icon: ShieldCheck },
+  { label: "Cabelos", icon: Heart },
+  { label: "Saúde da Mulher", icon: Flower2 },
+  { label: "Todas", icon: Plus },
+];
 
-      {/* HERO */}
-      <section className="relative overflow-hidden pt-28 sm:pt-36">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-40 left-1/2 h-[30rem] w-[60rem] -translate-x-1/2 rounded-full bg-blue-600/20 blur-[130px]" />
-          <div className="absolute right-[-10rem] top-40 h-96 w-96 rounded-full bg-indigo-500/10 blur-[100px]" />
+const benefits = [
+  { icon: Truck, title: "Entrega para todo o Brasil", copy: "com segurança e agilidade" },
+  { icon: CreditCard, title: "Parcele em até 6x", copy: "nos principais cartões" },
+  { icon: ShieldCheck, title: "Compra 100% segura", copy: "seus dados protegidos" },
+  { icon: Leaf, title: "Produtos originais", copy: "e de alta qualidade" },
+];
+
+// Carrossel da hero: 5 fotos de produtos em fade (5s cada), nesta ordem
+const HERO_SLIDES = [
+  { src: heroMounjaro, alt: "Mounjaro 100% Natural sobre pedestal de pedra" },
+  { src: heroMacaPeruana, alt: "Maca Peruana sobre pedestal de pedra" },
+  { src: heroFiocaps, alt: "Fiocaps sobre pedestal de pedra" },
+  { src: heroRilexMax, alt: "Rilex Max sobre pedestal de pedra" },
+  { src: heroColagenoTipo2, alt: "Colágeno Tipo 2 sobre pedestal de pedra" },
+];
+
+const HERO_SLIDE_MS = 5000;
+
+function Brand({ compact = false }: { compact?: boolean }) {
+  return (
+    <a
+      href="#inicio"
+      className="group flex shrink-0 items-center"
+      aria-label="Projeto Viva com Saúde — início"
+    >
+      <img
+        src={logoImage}
+        alt="Projeto Viva com Saúde"
+        className={
+          compact
+            ? "h-9 sm:h-11 w-auto max-h-12 object-contain transition-transform group-hover:scale-105"
+            : "h-11 sm:h-14 w-auto max-h-16 object-contain transition-transform group-hover:scale-105"
+        }
+      />
+    </a>
+  );
+}
+
+function Index() {
+  const navigate = useNavigate();
+  const { isLoggedIn } = useCurrentUser();
+  const settings = useStoreSettings();
+  const storeProducts = useStoreProducts();
+
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("Todas");
+  const [heroIndex, setHeroIndex] = useState(0);
+
+  // Troca automática do banner da hero a cada 5s com fade
+  useEffect(() => {
+    if (HERO_SLIDES.length <= 1) return;
+    const timer = setInterval(() => {
+      setHeroIndex((current) => (current + 1) % HERO_SLIDES.length);
+    }, HERO_SLIDE_MS);
+    return () => clearInterval(timer);
+  }, []);
+  const [cartOpen, setCartOpen] = useState(false);
+  const cart = useCart(storeProducts);
+  const cartCount = cart.count;
+  const subtotal = cart.subtotal;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [newsletterSent, setNewsletterSent] = useState(false);
+
+  const filteredProducts = useMemo(() => {
+    const normalized = normalizeSearchText(query.trim());
+    return storeProducts.filter((product) => {
+      const matchesCategory =
+        category === "Todas" ||
+        (product.category && product.category.toLowerCase().includes(category.toLowerCase()));
+      const matchesSearch =
+        !normalized ||
+        normalizeSearchText(`${product.name} ${product.category}`).includes(normalized);
+      return matchesCategory && matchesSearch;
+    });
+  }, [category, query, storeProducts]);
+
+  // Enter na busca da home leva para a página de produtos com o termo aplicado
+  const goToSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const term = query.trim();
+    if (!term) return;
+    navigate({ to: "/produtos", search: { busca: term } });
+  };
+
+  const featuredProducts = useMemo(() => {
+    const isFiltering = query.trim() !== "" || category !== "Todas";
+    if (isFiltering) return filteredProducts;
+    // Sem filtro: só os marcados como destaque (máx. 5). Se ninguém marcou,
+    // mostra os 5 primeiros para a vitrine não ficar vazia.
+    const marked = storeProducts.filter((product) => product.featured === true);
+    if (marked.length > 0) return marked.slice(0, 5);
+    return filteredProducts.slice(0, 5);
+  }, [filteredProducts, category, query, storeProducts]);
+
+  const addToCart = (id: number | string) => {
+    if (!isLoggedIn) {
+      toast.info("Faça login para adicionar produtos ao carrinho!");
+      navigate({ to: "/conta", search: { tab: "entrar" } });
+      return;
+    }
+    const target = storeProducts.find((p) => String(p.id) === String(id));
+    if (target && isProductOutOfStock(target)) {
+      toast.error("Este produto está esgotado no momento.");
+      return;
+    }
+    cart.add(id);
+    toast.success("Produto adicionado ao carrinho!");
+    setCartOpen(true);
+  };
+
+  const updateQuantity = (id: number | string, delta: number) => {
+    const current = cart.cart[String(id)] ?? 0;
+    cart.setQty(id, current + delta);
+  };
+
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterPhone, setNewsletterPhone] = useState("");
+
+  const submitNewsletter = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!newsletterEmail) return;
+    if (newsletterPhone.replace(/\D/g, "").length < 10) {
+      toast.error("Informe um WhatsApp válido com DDD para concluir o cadastro.");
+      return;
+    }
+
+    // Inscrição da newsletter vai para o Firestore (coleção "messages"),
+    // aparecendo na aba Mensagens do painel. LocalStorage é só fallback.
+    const newMsg: CustomerMessageItem = {
+      id: `msg-${Date.now()}`,
+      senderName: "Inscrição newsletter",
+      senderEmail: newsletterEmail,
+      senderPhone: newsletterPhone.trim(),
+      type: "Newsletter",
+      content: "Pedido de inscrição na newsletter",
+      date: new Date().toLocaleDateString("pt-BR"),
+      status: "Não respondida",
+    };
+
+    try {
+      await saveCustomerMessageToFirestore(newMsg);
+    } catch (err) {
+      console.error("Erro ao salvar newsletter no Firestore, usando cache local:", err);
+      try {
+        const stored = localStorage.getItem("viva_admin_customer_messages");
+        const currentList: CustomerMessageItem[] = stored
+          ? JSON.parse(stored)
+          : INITIAL_ADMIN_MESSAGES;
+        localStorage.setItem(
+          "viva_admin_customer_messages",
+          JSON.stringify([newMsg, ...currentList]),
+        );
+      } catch {
+        // ignore
+      }
+      toast.error("Cadastro salvo localmente: sem conexão com o banco de dados.");
+      return;
+    }
+
+    setNewsletterSent(true);
+  };
+
+  const goToCheckout = () => {
+    setCartOpen(false);
+    navigate({ to: "/checkout" });
+  };
+
+  const whatsappDirectUrl = `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(
+    settings.whatsappDefaultMessage,
+  )}`;
+  const trocasUrl = `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(
+    "Olá! Preciso de suporte para trocas e devoluções.",
+  )}`;
+
+  const currentBenefits = [
+    {
+      icon: Truck,
+      title: settings.trustDeliveryTitle || "Entrega para todo o Brasil",
+      copy: settings.trustDeliverySubtitle || "com segurança e agilidade",
+    },
+    {
+      icon: ShieldCheck,
+      title: settings.trustSecurityTitle || "Compra 100%",
+      copy: settings.trustSecuritySubtitle || "segura",
+    },
+    {
+      icon: CreditCard,
+      title: settings.trustInstallmentsTitle || "Parcele em até 6x",
+      copy: settings.trustInstallmentsSubtitle || "nos principais cartões",
+    },
+    {
+      icon: Leaf,
+      title: settings.trustQualityTitle || "Produtos originais",
+      copy: settings.trustQualitySubtitle || "e de alta qualidade",
+    },
+  ];
+
+  return (
+    <main id="inicio" className="min-h-screen overflow-x-hidden bg-background text-foreground">
+      {settings.announcementActive && settings.announcementBarText?.trim() && (
+        <div className="bg-primary text-primary-foreground text-center py-2 px-4 text-xs font-semibold tracking-wide border-b border-primary-foreground/10">
+          <span>{settings.announcementBarText}</span>
         </div>
-        <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <Reveal>
-            <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-blue-300">
-              <Sparkles className="h-3.5 w-3.5" /> 9 segmentos · 27 experiências reais
-            </span>
-            <h1 className="mt-5 text-[2.6rem] font-extrabold leading-[1.02] tracking-tight sm:text-6xl lg:text-[4.2rem]">
-              Seu negócio merece mais do que <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">um site.</span>
-            </h1>
-            <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-white/60 sm:text-base">
-              Explore algumas das experiências digitais que a Suite Hub pode criar para a sua
-              empresa. Escolha seu segmento, navegue por 3 conceitos e imagine sua marca ali.
+      )}
+      <div className="bg-primary/95 text-primary-foreground">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 divide-x divide-primary-foreground/15 px-4 sm:grid-cols-4 lg:px-8">
+          {currentBenefits.map((benefit) => {
+            const { icon: Icon, title } = benefit;
+            return (
+              <div
+                key={title}
+                className="flex h-9 items-center justify-center gap-2 px-2 text-center text-[0.65rem] font-medium sm:text-xs"
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                <span>{title}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/95 backdrop-blur">
+        <div className="mx-auto grid min-h-20 max-w-7xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 lg:px-8">
+          <Brand compact />
+          <nav
+            className="hidden items-center justify-center gap-7 lg:flex"
+            aria-label="Navegação principal"
+          >
+            <a className="nav-link" href="#inicio">
+              Início
+            </a>
+            <a className="nav-link" href="#produtos">
+              Produtos
+            </a>
+            <a className="nav-link inline-flex items-center gap-1" href="#categorias">
+              Categorias <ChevronDown className="h-3 w-3" />
+            </a>
+            <a
+              className="nav-link"
+              href={whatsappDirectUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Contato
+            </a>
+          </nav>
+          <div className="flex items-center justify-end gap-1 sm:gap-2">
+            <form
+              onSubmit={goToSearch}
+              className="relative hidden w-64 xl:block"
+              role="search"
+            >
+              <span className="sr-only">Buscar produtos</span>
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="O que você está procurando?"
+                className="h-10 rounded-full border-0 bg-muted pl-9 pr-8 shadow-none"
+              />
+              {query && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0.5 top-0.5 h-9 w-9 rounded-full"
+                  onClick={() => setQuery("")}
+                  aria-label="Limpar busca"
+                >
+                  <X />
+                </Button>
+              )}
+            </form>
+            <UserAccountDropdown className="hidden sm:inline-flex" />
+            <FavoritesHeaderButton className="hidden sm:inline-flex" onAddToCart={addToCart} />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative rounded-full"
+              aria-label={`Carrinho com ${cartCount} itens`}
+              onClick={() => {
+                if (!isLoggedIn) {
+                  toast.info("Faça login para acessar o carrinho de compras!");
+                  navigate({ to: "/conta", search: { tab: "entrar" } });
+                  return;
+                }
+                setCartOpen(true);
+              }}
+            >
+              <ShoppingCart />
+              {cartCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[0.6rem] font-bold text-primary-foreground">
+                  {cartCount}
+                </span>
+              )}
+            </Button>
+            <Sheet
+              open={cartOpen}
+              onOpenChange={(open) => {
+                if (open && !isLoggedIn) {
+                  toast.info("Faça login para acessar o carrinho de compras!");
+                  navigate({ to: "/conta", search: { tab: "entrar" } });
+                  return;
+                }
+                setCartOpen(open);
+              }}
+            >
+              <SheetContent className="flex w-full flex-col sm:max-w-md">
+                <SheetHeader className="border-b border-border pb-5 text-left">
+                  <SheetTitle className="font-display text-3xl">Seu carrinho</SheetTitle>
+                  <SheetDescription>
+                    {cartCount
+                      ? `${cartCount} ${cartCount === 1 ? "item selecionado" : "itens selecionados"}`
+                      : "Seu carrinho está vazio."}
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="flex-1 space-y-4 overflow-y-auto py-5">
+                  {storeProducts
+                    .filter((product) => cart.cart[String(product.id)])
+                    .map((product) => (
+                      <div
+                        key={product.id}
+                        className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 border-b border-border pb-4"
+                      >
+                        {product.imageUrl ? (
+                          <img
+                            src={product.imageUrl}
+                            alt={product.name}
+                            className="h-20 w-full rounded-md object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div
+                            className="product-crop h-20 rounded-md"
+                            style={{
+                              backgroundImage: `url(${productsImage})`,
+                              backgroundPosition: product.imagePosition,
+                            }}
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold leading-snug">{product.name}</p>
+                          <p className="mt-1 font-bold text-primary">
+                            {formatPrice(product.price)}
+                          </p>
+                          <div className="mt-2 flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => updateQuantity(product.id, -1)}
+                              aria-label={`Diminuir ${product.name}`}
+                            >
+                              <Minus />
+                            </Button>
+                            <span className="w-7 text-center text-sm font-semibold">
+                              {cart.cart[String(product.id)]}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => updateQuantity(product.id, 1)}
+                              aria-label={`Aumentar ${product.name}`}
+                            >
+                              <Plus />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+                <div className="border-t border-border pt-5">
+                  <div className="mb-4 flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Subtotal</span>
+                    <strong className="text-xl">{formatPrice(subtotal)}</strong>
+                  </div>
+                  <Button
+                    className="h-12 w-full font-semibold gap-2"
+                    disabled={!cartCount}
+                    onClick={goToCheckout}
+                  >
+                    Finalizar compra
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+            <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full lg:hidden"
+                  aria-label="Abrir menu"
+                >
+                  <Menu />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[86%]">
+                <SheetHeader className="text-left">
+                  <SheetTitle>
+                    <Brand />
+                  </SheetTitle>
+                  <SheetDescription>Navegue pela loja.</SheetDescription>
+                </SheetHeader>
+                <nav className="mt-8 grid gap-1">
+                  {[
+                    ["Início", "#inicio"],
+                    ["Produtos", "#produtos"],
+                    ["Categorias", "#categorias"],
+                  ].map(([label, href]) => (
+                    <a
+                      key={href}
+                      href={href}
+                      onClick={() => setMenuOpen(false)}
+                      className="border-b border-border py-4 text-base font-semibold"
+                    >
+                      {label}
+                    </a>
+                  ))}
+                  <a
+                    href={whatsappDirectUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => setMenuOpen(false)}
+                    className="border-b border-border py-4 text-base font-semibold"
+                  >
+                    Contato
+                  </a>
+                  <Link
+                    to="/conta"
+                    onClick={() => setMenuOpen(false)}
+                    className="border-b border-border py-4 text-base font-semibold text-primary"
+                  >
+                    Minha Conta
+                  </Link>
+                </nav>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </div>
+        <div className="border-t border-border px-4 py-2 xl:hidden">
+          <form onSubmit={goToSearch} className="relative mx-auto block max-w-2xl" role="search">
+            <span className="sr-only">Buscar produtos</span>
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar produtos..."
+              className="h-9 rounded-full bg-muted pl-9 shadow-none"
+            />
+          </form>
+        </div>
+      </header>
+
+      <section className="relative min-h-[33rem] overflow-hidden sm:min-h-[36rem]">
+        {HERO_SLIDES.map((slide, index) => (
+          <img
+            key={slide.src}
+            src={slide.src}
+            alt={slide.alt}
+            width={1536}
+            height={864}
+            loading={index === 0 ? "eager" : "lazy"}
+            aria-hidden={index === heroIndex ? undefined : true}
+            className={`absolute inset-0 h-full w-full object-cover object-[62%_center] transition-opacity duration-1000 sm:object-center ${
+              index === heroIndex ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        ))}
+        <div className="absolute inset-0 bg-hero-overlay" />
+        <div className="relative mx-auto flex min-h-[33rem] max-w-7xl items-center px-5 py-16 sm:min-h-[36rem] lg:px-8">
+          <div className="max-w-xl">
+            <p className="mb-4 text-xs font-bold uppercase text-primary">
+              {settings.heroTagline || "Saúde natural para uma vida melhor"}
             </p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <a href="#segmentos" className="inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-7 py-3.5 text-sm font-extrabold shadow-[0_16px_40px_rgba(37,99,235,.45)] transition hover:bg-blue-500">
-                <Search className="h-4 w-4" /> Encontrar meu segmento
+            <h1 className="font-display text-5xl leading-[0.95] text-primary sm:text-6xl lg:text-7xl">
+              {settings.heroTitleLine1 || "Mais saúde"}
+              <br />
+              {settings.heroTitleLine2 || "para o seu dia a dia."}
+            </h1>
+            <p className="mt-5 max-w-md text-base leading-relaxed text-foreground/80">
+              {settings.heroSubtitle ||
+                "Produtos naturais, fitoterápicos e suplementos para o seu bem-estar físico e mental."}
+            </p>
+            <Button asChild size="lg" className="mt-7 h-12 rounded-full px-6">
+              <a href={settings.heroButtonLink || "#produtos"}>
+                {settings.heroButtonText || "Conheça nossos produtos"} <ArrowRight />
               </a>
-              <Link to="/esquadrao" className="inline-flex items-center justify-center gap-2 rounded-full border border-cyan-400/40 bg-cyan-500/10 px-7 py-3.5 text-sm font-extrabold text-cyan-200 transition hover:bg-cyan-500/20">
-                🛡 Protótipo Esquadrão do Céu
-              </Link>
-              <a href={SITE.waLink()} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 px-7 py-3.5 text-sm font-bold text-white/85 transition hover:border-white/30 hover:text-white">
-                <MessageCircle className="h-4 w-4" /> Falar com a Suite Hub
-              </a>
+            </Button>
+            <div className="mt-10 grid max-w-lg grid-cols-3 gap-3 border-t border-primary/15 pt-5 text-xs font-semibold text-primary">
+              <span className="flex items-center justify-start gap-2">
+                <Leaf className="h-5 w-5 shrink-0" /> {settings.heroBadge1 || "100% naturais"}
+              </span>
+              <span className="flex items-center justify-center gap-2 text-center">
+                <BadgeCheck className="h-5 w-5 shrink-0" /> {settings.heroBadge2 || "Qualidade comprovada"}
+              </span>
+              <span className="flex items-center justify-end gap-2 text-right">
+                <Truck className="h-5 w-5 shrink-0" /> Entrega nacional
+              </span>
             </div>
-            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[12px] font-semibold text-white/45">
-              {[ "Sites personalizados", "Agendamento e pedidos", "WhatsApp e conversão" ].map((t) => (
-                <span key={t} className="inline-flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-emerald-400" />{t}</span>
+          </div>
+        </div>
+        {/* Bolinhas de navegação do carrossel */}
+        <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 gap-2">
+          {HERO_SLIDES.map((slide, index) => (
+            <button
+              key={slide.src}
+              type="button"
+              onClick={() => setHeroIndex(index)}
+              aria-label={`Ver banner ${index + 1}: ${slide.alt}`}
+              className={`h-2.5 rounded-full transition-all ${
+                index === heroIndex
+                  ? "w-7 bg-primary"
+                  : "w-2.5 bg-primary/30 hover:bg-primary/60"
+              }`}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section id="categorias" className="relative z-10 mx-auto -mt-5 max-w-7xl px-4 lg:px-8">
+        <div className="rounded-lg border border-border bg-card p-5 shadow-soft sm:p-7">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-2xl sm:text-3xl">Navegue por categorias</h2>
+            <Link
+              to="/produtos"
+              className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+            >
+              <span>Ver todas as categorias</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="category-scroll flex gap-3 overflow-x-auto pb-2 lg:grid lg:grid-cols-11 lg:overflow-visible">
+            {categories.map(({ label, icon: Icon }) => {
+              return (
+                <Link
+                  key={label}
+                  to="/produtos"
+                  search={label === "Todas" ? {} : { categoria: label }}
+                  className="group flex h-auto min-w-20 flex-col items-center gap-2 px-1 py-1 text-center hover:bg-transparent transition-transform hover:-translate-y-0.5"
+                  title={`Ver produtos: ${label}`}
+                >
+                  <span className="grid h-14 w-14 place-items-center rounded-full bg-brand-soft text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all shadow-2xs">
+                    <Icon className="h-6 w-6" />
+                  </span>
+                  <span className="whitespace-normal text-[0.68rem] font-semibold leading-tight text-foreground group-hover:text-primary transition-colors">
+                    {label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section id="produtos" className="mx-auto max-w-7xl px-4 py-14 lg:px-8">
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="font-display text-3xl sm:text-4xl">Produtos em destaque</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Os mais vendidos para sua saúde e bem-estar.
+            </p>
+          </div>
+          {(query || category !== "Todas") && (
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => {
+                setQuery("");
+                setCategory("Todas");
+              }}
+            >
+              Limpar filtros <X />
+            </Button>
+          )}
+        </div>
+        {featuredProducts.length ? (
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {featuredProducts.map((product) => (
+              <article
+                key={product.id}
+                className="group flex min-w-0 flex-col rounded-md border border-border bg-card p-2.5 shadow-card transition-transform hover:-translate-y-1"
+              >
+                <div className="relative overflow-hidden rounded-md bg-muted">
+                  <ProductFavoriteButton productId={product.id} productName={product.name} />
+                  {isProductOutOfStock(product) ? (
+                    <span className="absolute right-1.5 top-1.5 z-10 rounded-full bg-gray-700 px-2 py-1 text-[0.62rem] font-bold text-white">
+                      Esgotado
+                    </span>
+                  ) : (
+                    <span className="absolute right-1.5 top-1.5 z-10 rounded-full bg-sale px-2 py-1 text-[0.62rem] font-bold text-sale-foreground">
+                      {product.discount}% OFF
+                    </span>
+                  )}
+                  {product.imageUrl ? (
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      className="aspect-[4/5] w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div
+                      role="img"
+                      aria-label={`Pote de ${product.name}`}
+                      className="product-crop aspect-[4/5] w-full transition-transform duration-500 group-hover:scale-105"
+                      style={{
+                        backgroundImage: `url(${productsImage})`,
+                        backgroundPosition: product.imagePosition,
+                      }}
+                    />
+                  )}
+                </div>
+                <h3 className="mt-3 min-h-10 text-xs font-semibold leading-snug sm:text-sm">
+                  {product.name}
+                </h3>
+                <p className="mt-2 text-xs text-muted-foreground line-through">
+                  {formatPrice(product.oldPrice)}
+                </p>
+                <p className="text-lg font-extrabold text-sale">{formatPrice(product.price)}</p>
+                <p className="mb-3 text-[0.68rem] text-muted-foreground">
+                  {product.installments}x de {formatPrice(product.price / product.installments)}
+                </p>
+                <div className="mt-auto grid gap-2">
+                  <Button
+                    asChild
+                    size="sm"
+                    className="h-auto min-h-9 w-full whitespace-normal px-2 py-2 text-[0.68rem] sm:text-xs"
+                  >
+                    <Link to="/produto/$slug" params={{ slug: product.slug }}>
+                      Ver detalhes
+                    </Link>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-auto min-h-9 w-full whitespace-normal px-2 py-2 text-[0.68rem] sm:text-xs"
+                    disabled={isProductOutOfStock(product)}
+                    onClick={() => addToCart(product.id)}
+                  >
+                    {isProductOutOfStock(product) ? "Esgotado" : "Adicionar ao carrinho"}
+                  </Button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="border-y border-border py-16 text-center">
+            <Search className="mx-auto mb-3 h-7 w-7 text-muted-foreground" />
+            <p className="font-display text-2xl">Nenhum produto encontrado</p>
+            <p className="mt-1 text-sm text-muted-foreground">Tente outro termo ou categoria.</p>
+          </div>
+        )}
+
+        {/* Bloco Ver todos os produtos */}
+        <div className="mt-10 flex justify-center">
+          <Button
+            asChild
+            size="lg"
+            className="h-12 px-8 rounded-full font-bold text-sm shadow-soft transition-all hover:scale-[1.02]"
+          >
+            <Link to="/produtos">
+              Ver todos os produtos
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+      </section>
+
+      <section className="relative min-h-[28rem] overflow-hidden sm:min-h-[25rem]">
+        <img
+          src={benefitsImage}
+          alt="Cápsulas fitoterápicas, ervas e pó natural"
+          width={1536}
+          height={640}
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover object-[65%_center]"
+        />
+        <div className="absolute inset-0 bg-banner-overlay" />
+        <div className="relative mx-auto grid min-h-[28rem] max-w-7xl items-center px-5 py-12 sm:min-h-[25rem] lg:grid-cols-2 lg:px-8">
+          <div className="max-w-xl">
+            <h2 className="font-display text-4xl leading-tight text-primary sm:text-5xl">
+              Cuidado natural
+              <br />
+              do seu jeito.
+            </h2>
+            <p className="mt-3 max-w-md text-sm leading-relaxed text-foreground/75">
+              Suplementos, fitoterápicos e muito mais para uma vida mais saudável e equilibrada.
+            </p>
+            <div className="mt-6 grid max-w-md grid-cols-2 gap-3 text-xs font-medium">
+              {[
+                "Mais disposição",
+                "Sistema imunológico",
+                "Equilíbrio e bem-estar",
+                "Qualidade de vida",
+              ].map((item) => (
+                <span key={item} className="flex items-center gap-2">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-soft text-primary">
+                    <Leaf className="h-4 w-4" />
+                  </span>
+                  {item}
+                </span>
               ))}
             </div>
-          </Reveal>
-
-          {/* MOCKUPS */}
-          <Reveal delay={150} className="relative hidden lg:block">
-            <div className="relative h-[480px]">
-              <div className="absolute left-0 top-6 w-64 rotate-[-6deg] overflow-hidden rounded-2xl border border-white/15 bg-[#0d1428] shadow-2xl transition-transform duration-500 hover:rotate-0">
-                <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=500&q=80" alt="Restaurante premium" className="h-40 w-full object-cover" />
-                <div className="p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-amber-300">Restaurante</p><p className="text-sm font-extrabold">Casa Nostra</p><p className="mt-1 text-[11px] text-white/50">Reserva · Cardápio · Delivery</p></div>
-              </div>
-              <div className="absolute right-0 top-0 w-64 rotate-[5deg] overflow-hidden rounded-2xl border border-white/15 bg-[#0d1428] shadow-2xl transition-transform duration-500 hover:rotate-0">
-                <img src="https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=500&q=80" alt="Barbearia" className="h-40 w-full object-cover" />
-                <div className="p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-yellow-300">Barbearia</p><p className="text-sm font-extrabold">Barber Club 91</p><p className="mt-1 text-[11px] text-white/50">Agenda · Planos · Galeria</p></div>
-              </div>
-              <div className="absolute bottom-0 left-1/2 w-72 -translate-x-1/2 overflow-hidden rounded-2xl border border-blue-500/30 bg-[#0d1428] shadow-[0_30px_80px_rgba(37,99,235,.35)]">
-                <img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=600&q=80" alt="Imobiliária" className="h-44 w-full object-cover" />
-                <div className="p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-blue-300">Imobiliária</p><p className="text-sm font-extrabold">Alto Vale — R$ 2,8M</p><div className="mt-2 flex gap-2"><span className="rounded-full bg-blue-600 px-4 py-1.5 text-[11px] font-bold">Agendar visita</span><span className="rounded-full border border-white/15 px-4 py-1.5 text-[11px] font-bold">Detalhes</span></div></div>
-              </div>
-              <div className="absolute bottom-16 right-2 flex items-center gap-2 rounded-full border border-white/10 bg-black/70 px-4 py-2 text-[11px] font-bold backdrop-blur">
-                <MousePointerClick className="h-3.5 w-3.5 text-blue-400" /> 100% navegável
-              </div>
-            </div>
-          </Reveal>
+            <Button asChild className="mt-7 rounded-full">
+              <a href="#produtos">
+                Ver ofertas <ArrowRight />
+              </a>
+            </Button>
+          </div>
         </div>
+      </section>
 
-        {/* marquee segmentos */}
-        <div className="relative mt-14 border-y border-white/5 bg-white/[0.015] py-3">
-          <p className="animate-marquee whitespace-nowrap text-center text-[12px] font-bold uppercase tracking-[0.24em] text-white/35">
-            Restaurantes · Barbearias · Salões · Psicologia · Imobiliárias · Automotivo · Lava-Car · Advocacia · Gás & Delivery ·
+      <section aria-label="Vantagens" className="border-b border-border bg-muted/55">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 px-4 py-7 lg:grid-cols-4 lg:px-8">
+          {benefits.map(({ icon: Icon, title, copy }, index) => (
+            <div
+              key={title}
+              className={`flex items-center gap-3 px-2 py-3 sm:px-5 ${index > 0 ? "lg:border-l lg:border-border" : ""}`}
+            >
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-soft text-primary">
+                <Icon className="h-5 w-5" />
+              </span>
+              <span>
+                <strong className="block text-xs">{title}</strong>
+                <small className="text-[0.65rem] text-muted-foreground">{copy}</small>
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Formulário de Mensagem / Contato vinculado à área de Mensagens do Administrador */}
+      <section id="contato-formulario" className="mx-auto max-w-4xl px-4 pb-12 lg:px-8">
+        <ContactMessageForm />
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 pb-14 lg:px-8">
+        <div className="newsletter-grid overflow-hidden rounded-lg border border-border bg-muted/70 px-6 py-9 sm:px-10">
+          <div className="flex items-start gap-4">
+            <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-brand-soft text-primary">
+              <Mail className="h-7 w-7" />
+            </span>
+            <div>
+              <h2 className="font-display text-2xl sm:text-3xl">Receba nossas ofertas</h2>
+              <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                Cadastre seu e-mail e WhatsApp e receba novidades, promoções e dicas de saúde e
+                bem-estar.
+              </p>
+              {newsletterSent ? (
+                <p className="mt-5 font-semibold text-primary">Cadastro realizado com sucesso!</p>
+              ) : (
+                <form onSubmit={submitNewsletter} className="mt-5 max-w-lg space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <div className="flex-1">
+                      <label
+                        htmlFor="newsletter-email"
+                        className="mb-1 block text-xs font-semibold text-foreground"
+                      >
+                        E-mail <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        id="newsletter-email"
+                        required
+                        type="email"
+                        aria-label="Seu melhor e-mail (obrigatório)"
+                        placeholder="Seu melhor e-mail"
+                        value={newsletterEmail}
+                        onChange={(e) => setNewsletterEmail(e.target.value)}
+                        className="h-11 bg-background"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label
+                        htmlFor="newsletter-phone"
+                        className="mb-1 block text-xs font-semibold text-foreground"
+                      >
+                        WhatsApp <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        id="newsletter-phone"
+                        required
+                        type="tel"
+                        aria-label="Seu WhatsApp com DDD (obrigatório)"
+                        placeholder="WhatsApp com DDD"
+                        value={newsletterPhone}
+                        onChange={(e) => setNewsletterPhone(e.target.value)}
+                        className="h-11 bg-background"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Campos marcados com <span className="font-bold text-red-500">*</span> são
+                    obrigatórios.
+                  </p>
+                  <Button type="submit" className="h-11 w-full px-6 sm:w-auto">
+                    Cadastrar
+                  </Button>
+                </form>
+              )}
+            </div>
+          </div>
+          <p className="font-script hidden max-w-sm rotate-[-5deg] text-center text-4xl leading-tight text-primary lg:block">
+            Pequenas escolhas hoje,
+            <br />
+            grandes resultados amanhã.
           </p>
         </div>
       </section>
 
-      {/* SEGMENTOS */}
-      <section id="segmentos" className="mx-auto max-w-7xl scroll-mt-20 px-4 py-16 sm:px-6 sm:py-20">
-        <Reveal>
-          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-blue-400">Encontre o site ideal para o seu negócio</p>
-          <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="max-w-xl text-3xl font-extrabold tracking-tight sm:text-4xl">Explore experiências criadas para cada tipo de empresa.</h2>
-            <p className="max-w-sm text-sm text-white/50">Cada segmento tem 3 conceitos com estratégias diferentes — não são cores diferentes do mesmo template.</p>
+      <footer id="contato" className="border-t border-border bg-card">
+        <div className="mx-auto grid max-w-7xl gap-9 px-5 py-12 sm:grid-cols-2 lg:grid-cols-[1.25fr_1fr_1fr_1.3fr_1.2fr] lg:px-8">
+          <div>
+            <Brand />
+            <p className="mt-4 text-xs text-muted-foreground">{settings.storeSlogan}</p>
           </div>
-        </Reveal>
-        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {SEGMENTS.map((s, i) => (<SegmentCard key={s.slug} segment={s} index={i} />))}
-        </div>
-      </section>
-
-      {/* COMO FUNCIONA */}
-      <section id="como-funciona" className="border-y border-white/5 bg-white/[0.015]">
-        <div className="mx-auto max-w-7xl scroll-mt-20 px-4 py-16 sm:px-6">
-          <Reveal>
-            <h2 className="text-center text-3xl font-extrabold tracking-tight sm:text-4xl">Do clique ao contato em 4 passos</h2>
-          </Reveal>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              ["01", "Escolha seu segmento", "Restaurante, barbearia, imobiliária... ache o seu."],
-              ["02", "Compare 3 conceitos", "Premium, moderno, acolhedor — estratégias reais."],
-              ["03", "Navegue na demo", "Clique, agende, filtre, simule. Como um site de verdade."],
-              ["04", "Peça o seu", "Chame no WhatsApp e receba proposta personalizada."],
-            ].map(([n, t, d], i) => (
-              <Reveal key={n} delay={i * 90}>
-                <div className="h-full rounded-3xl border border-white/10 bg-[#0b1120] p-6">
-                  <span className="text-4xl font-black text-blue-600/60">{n}</span>
-                  <h3 className="mt-3 font-extrabold">{t}</h3>
-                  <p className="mt-1.5 text-[13px] leading-relaxed text-white/55">{d}</p>
-                </div>
-              </Reveal>
-            ))}
+          <FooterColumn
+            title="Institucional"
+            links={[
+              "Início",
+              "Produtos",
+              "Categorias",
+              { label: "Contato / Enviar mensagem", href: "/#contato-formulario" },
+            ]}
+          />
+          <FooterColumn
+            title="Atendimento"
+            links={[
+              {
+                label: "Fale conosco (WhatsApp)",
+                href: whatsappDirectUrl,
+                external: true,
+              },
+              { label: "Política de privacidade", href: "/privacidade" },
+              { label: "Trocas e devoluções", href: trocasUrl, external: true },
+              { label: "Entrega", href: "/#contato-formulario" },
+            ]}
+          />
+          <div>
+            <h3 className="text-sm font-bold">Contato</h3>
+            <ul className="mt-4 space-y-3 text-xs text-muted-foreground">
+              <li>
+                <a
+                  href={whatsappDirectUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-primary transition-colors inline-flex items-center gap-1.5 font-medium text-foreground"
+                >
+                  <MessageCircle className="h-4 w-4 text-whatsapp" />
+                  {settings.whatsappDisplay}
+                </a>
+              </li>
+              <li className="break-all">
+                <a
+                  href={`mailto:${settings.contactEmail}`}
+                  className="hover:text-primary transition-colors"
+                >
+                  {settings.contactEmail}
+                </a>
+              </li>
+              <li>{settings.locationDisplay}</li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-bold">Compra protegida</h3>
+            <div className="mt-4 flex items-center gap-2 rounded-md bg-brand-soft p-3 text-primary">
+              <ShieldCheck className="h-8 w-8" />
+              <span className="text-[0.65rem] font-bold uppercase">
+                Site protegido
+                <br />
+                SSL certificado
+              </span>
+            </div>
           </div>
         </div>
-      </section>
-
-      {/* PROVA DE VALOR */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-        <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
-          <Reveal>
-            <div className="h-full rounded-[2rem] border border-white/10 bg-gradient-to-br from-blue-600/20 to-transparent p-8 sm:p-10">
-              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-600"><Zap className="h-5 w-5" /></span>
-              <h2 className="mt-4 text-2xl font-extrabold tracking-tight sm:text-3xl">Não vendemos templates. Criamos experiências sob medida.</h2>
-              <p className="mt-3 text-sm leading-relaxed text-white/60">Cada demonstração aqui parece uma empresa diferente — porque é assim que trabalhamos: marca, fotos, textos e fluxos pensados para o seu negócio, não um tema genérico.</p>
-              <ul className="mt-5 space-y-2 text-[13px] font-semibold text-white/75">
-                {["Identidade própria por projeto", "Agendamento, pedidos e filtros funcionais", "WhatsApp e conversão no centro", "Rápido, responsivo e otimizado"].map((t) => (
-                  <li key={t} className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-400" />{t}</li>
-                ))}
-              </ul>
+        <div className="border-t border-border bg-muted/60">
+          <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-5 text-[0.65rem] text-muted-foreground sm:flex-row sm:items-center sm:justify-between lg:px-8">
+            <span>© 2026 Projeto Viva com Saúde. Todos os direitos reservados.</span>
+            <div className="flex items-center gap-4">
+              <span>Feito com cuidado por quem acredita em uma vida mais saudável.</span>
             </div>
-          </Reveal>
-          <Reveal delay={120}>
-            <div className="flex h-full flex-col justify-center rounded-[2rem] border border-white/10 bg-white/[0.02] p-8 sm:p-10">
-              <h3 className="text-xl font-extrabold">Sites · Landing Pages · Sistemas · SaaS · E-commerce</h3>
-              <p className="mt-2 text-sm text-white/55">Nesta vitrine o foco é <b className="text-white">sites</b>. Mas a Suite Hub entrega o ecossistema completo.</p>
-              <div className="mt-6 grid grid-cols-3 gap-3 text-center">
-                {[["27", "demos navegáveis"], ["9", "segmentos"], ["3", "conceitos por segmento"]].map(([n, l]) => (
-                  <div key={l} className="rounded-2xl border border-white/10 bg-[#0b1120] p-4"><p className="text-3xl font-black text-blue-400">{n}</p><p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-white/45">{l}</p></div>
-                ))}
-              </div>
-              <Link to="/$segment" params={{ segment: "restaurante" }} className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-extrabold text-[#070b16] transition hover:bg-blue-500 hover:text-white">
-                Começar por Restaurantes <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </Reveal>
+          </div>
         </div>
-      </section>
+      </footer>
 
-      {/* CTA FINAL */}
-      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
-        <Reveal>
-          <div className="relative overflow-hidden rounded-[2rem] border border-blue-500/20 bg-gradient-to-br from-blue-600/25 via-[#0a1226] to-[#070b16] p-8 text-center sm:p-14">
-            <div className="pointer-events-none absolute -top-24 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full bg-blue-600/25 blur-[100px]" />
-            <h2 className="mx-auto max-w-2xl text-3xl font-extrabold tracking-tight sm:text-4xl">Pronto para ter um site que vende por você?</h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-white/60">Mande uma mensagem agora e receba uma proposta com conceito personalizado para o seu segmento.</p>
-            <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
-              <a href={SITE.waLink()} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-8 py-4 text-sm font-extrabold shadow-[0_16px_40px_rgba(37,99,235,.45)] transition hover:bg-blue-500">
-                <MessageCircle className="h-4 w-4" /> Quero meu site — chamar no WhatsApp
+      <a
+        href="https://wa.me/5511950300241?text=Ol%C3%A1!%20Vim%20pelo%20site%20Projeto%20Viva%20com%20Sa%C3%BAde%20e%20gostaria%20de%20informa%C3%A7%C3%B5es."
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Conversar pelo WhatsApp"
+        className="fixed bottom-5 right-5 z-30 grid h-14 w-14 place-items-center rounded-full bg-whatsapp text-primary-foreground shadow-lg transition-transform hover:scale-110"
+      >
+        <MessageCircle className="h-7 w-7" />
+      </a>
+    </main>
+  );
+}
+
+type FooterLinkItem = string | { label: string; href: string; external?: boolean };
+
+function FooterColumn({ title, links }: { title: string; links: FooterLinkItem[] }) {
+  return (
+    <div>
+      <h3 className="text-sm font-bold">{title}</h3>
+      <ul className="mt-4 space-y-2 text-xs text-muted-foreground">
+        {links.map((item) => {
+          if (typeof item === "object") {
+            if (item.href.startsWith("/")) {
+              return (
+                <li key={item.label}>
+                  <Link
+                    to={item.href}
+                    className="hover:text-primary transition-colors inline-flex items-center gap-1.5"
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            }
+            return (
+              <li key={item.label}>
+                <a
+                  href={item.href}
+                  target={item.external ? "_blank" : undefined}
+                  rel={item.external ? "noreferrer" : undefined}
+                  className="hover:text-primary transition-colors inline-flex items-center gap-1.5"
+                >
+                  {item.label}
+                </a>
+              </li>
+            );
+          }
+          return (
+            <li key={item}>
+              <a href="#inicio" className="hover:text-primary transition-colors">
+                {item}
               </a>
-            </div>
-            <p className="mt-4 text-[11px] text-white/35">{SITE.whatsappDisplay} · {SITE.email} · {SITE.instagramLabel}</p>
-          </div>
-        </Reveal>
-      </section>
-
-      <HubFooter />
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
