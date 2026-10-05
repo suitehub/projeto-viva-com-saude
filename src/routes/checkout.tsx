@@ -29,7 +29,7 @@ import {
   isValidEmail,
   useCart,
 } from "@/data/cart";
-import { createMercadoPagoPreference } from "@/lib/backend";
+import { createMercadoPagoPreference, BACKEND_URL } from "@/lib/backend";
 import { toast } from "sonner";
 import {
   fetchCouponByCode,
@@ -88,15 +88,73 @@ function CheckoutPage() {
   const [freightId, setFreightId] = useState(FREIGHT_OPTIONS[0].id);
   const [formError, setFormError] = useState("");
   const [isPaying, setIsPaying] = useState(false);
+  // Cotação ao vivo dos Correios (PAC/SEDEX) + retirada; tabela fixa de fallback
+  const [freightChoices, setFreightChoices] = useState(FREIGHT_OPTIONS);
+  const [quoting, setQuoting] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<CouponCheck | null>(null);
   const [couponError, setCouponError] = useState("");
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
   const freight = useMemo(
-    () => FREIGHT_OPTIONS.find((f) => f.id === freightId) || FREIGHT_OPTIONS[0],
-    [freightId],
+    () => freightChoices.find((f) => f.id === freightId) || freightChoices[0],
+    [freightChoices, freightId],
   );
+
+  // Ao completar o CEP, busca PAC/SEDEX reais (fallback: tabela fixa)
+  const cepDigits = cep.replace(/\D/g, "");
+  const itemsSignature = items.map(({ product, qty }) => `${product.id}:${qty}`).join("|");
+  useEffect(() => {
+    if (cepDigits.length !== 8 || items.length === 0) return;
+    let cancelled = false;
+    setQuoting(true);
+    fetch(`${BACKEND_URL}/api/cotar-frete-correios`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cepDestino: cepDigits,
+        items: items.map(({ product, qty }) => ({
+          qty,
+          weightKg: product.weightKg,
+          lengthCm: product.lengthCm,
+          widthCm: product.widthCm,
+          heightCm: product.heightCm,
+        })),
+      }),
+    })
+      .then((res) => res.json().catch(() => ({})))
+      .then(
+        (data: {
+          options?: Array<{ id: string; label: string; price: number; deadlineDays?: number }>;
+        }) => {
+          if (cancelled || !data.options?.length) {
+            if (!cancelled) setQuoting(false);
+            return;
+          }
+          const mapped = data.options.map((o) => ({
+            id: o.id,
+            label: o.label,
+            detail: o.deadlineDays ? `${o.deadlineDays} dias úteis` : "Correios",
+            price: o.price,
+          }));
+          mapped.push({
+            id: "retirada",
+            label: "Retirar na loja",
+            detail: "Combinar pelo WhatsApp",
+            price: 0,
+          });
+          setFreightChoices(mapped);
+          setFreightId((prev) => (mapped.some((m) => m.id === prev) ? prev : mapped[0].id));
+          setQuoting(false);
+        },
+      )
+      .catch(() => {
+        if (!cancelled) setQuoting(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cepDigits, itemsSignature]);
 
   const couponItems = useMemo(
     () =>
@@ -111,7 +169,6 @@ function CheckoutPage() {
   );
 
   // Recalcula o cupom se o carrinho mudar; derruba se ficar inválido
-  const itemsSignature = items.map(({ product, qty }) => `${product.id}:${qty}`).join("|");
   useEffect(() => {
     if (!appliedCoupon) return;
     try {
@@ -208,12 +265,13 @@ function CheckoutPage() {
     };
 
     // Cria a preferência do Checkout Pro e redireciona ao Mercado Pago.
-    // O servidor recalcula tudo (preços do catálogo, frete, cupom).
+    // O servidor recalcula tudo (preços do catálogo, frete Correios, cupom).
     setIsPaying(true);
     try {
       const payment = await createMercadoPagoPreference({
         items: payload.items.map((item) => ({ id: item.id, qty: item.qty })),
         freightId: freight.id,
+        cepDestino: payload.customer.cep,
         email: payload.customer.email,
         couponCode: appliedCoupon?.coupon.code,
       });
@@ -460,7 +518,11 @@ function CheckoutPage() {
                 </div>
 
                 <div className="mt-5 space-y-2">
-                  {FREIGHT_OPTIONS.map((option) => (
+                  <p className="text-xs font-semibold text-gray-700">
+                    Opções de entrega{" "}
+                    {quoting && <span className="font-normal text-gray-400">(cotando nos Correios...)</span>}
+                  </p>
+                  {freightChoices.map((option) => (
                     <label
                       key={option.id}
                       className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3.5 transition-colors ${

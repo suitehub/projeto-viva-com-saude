@@ -14,6 +14,7 @@ export interface BackendCartItem {
 export interface CreatePreferenceInput {
   items: BackendCartItem[];
   freightId: string;
+  cepDestino: string;
   email: string;
   couponCode?: string;
 }
