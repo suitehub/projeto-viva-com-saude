@@ -7,6 +7,7 @@ import { useCart } from "@/data/cart";
 import { useStoreProducts } from "@/data/all-store-products";
 import { BACKEND_URL } from "@/lib/backend";
 import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
 export const Route = createFileRoute("/pedido/pendente")({
   ssr: false,
@@ -22,32 +23,80 @@ function OrderPendingPage() {
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
 
   // Registra o pedido como pendente (não limpa o carrinho aqui).
+  // Espera a sessão restaurar e tenta com espera antes de desistir.
   useEffect(() => {
+    let cancelled = false;
     const params = new URLSearchParams(window.location.search);
     const paymentId =
       params.get("payment_id") || params.get("collection_id") || params.get("collectionId");
     if (!paymentId) return;
-    let storedAddr = "";
-    try {
-      storedAddr = localStorage.getItem("pvcs_checkout_address") || "";
-    } catch {
-      // ignore
-    }
-    const query = new URLSearchParams({ payment_id: paymentId });
-    if (storedAddr) query.set("addr", storedAddr);
-    auth.currentUser
-      ?.getIdToken()
-      .catch(() => null)
-      .then((idToken) =>
-        fetch(`${BACKEND_URL}/api/confirmar-pedido?${query.toString()}`, {
-          headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
-        }),
-      )
-      .then((res) => (res ? res.json().catch(() => ({})) : {}))
-      .then((data: { orderNumber?: string }) => {
-        if (data.orderNumber) setOrderNumber(data.orderNumber);
-      })
-      .catch((err) => console.error("Erro ao registrar pedido pendente:", err));
+
+    const waitForAuthUser = (): Promise<unknown> => {
+      if (auth.currentUser) return Promise.resolve(auth.currentUser);
+      return new Promise((resolve) => {
+        let done = false;
+        const timer = setTimeout(() => {
+          if (!done) {
+            done = true;
+            unsubscribe();
+            resolve(auth.currentUser || null);
+          }
+        }, 10000);
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+          if (!done) {
+            done = true;
+            clearTimeout(timer);
+            unsubscribe();
+            resolve(user);
+          }
+        });
+      });
+    };
+
+    const attempt = async (retriesLeft: number, delayMs: number): Promise<void> => {
+      if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+      if (cancelled) return;
+      try {
+        await waitForAuthUser();
+        if (cancelled) return;
+        let storedAddr = "";
+        try {
+          storedAddr = localStorage.getItem("pvcs_checkout_address") || "";
+        } catch {
+          // ignore (só apaga após sucesso)
+        }
+        const query = new URLSearchParams({ payment_id: paymentId });
+        if (storedAddr) query.set("addr", storedAddr);
+        const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+        const res = await fetch(
+          `${BACKEND_URL}/api/confirmar-pedido?${query.toString()}`,
+          { headers: idToken ? { Authorization: `Bearer ${idToken}` } : {} },
+        );
+        const data = (await res.json().catch(() => ({}))) as { orderNumber?: string };
+        if (!res.ok) throw new Error("Falha ao registrar");
+        if (cancelled) return;
+        if (data.orderNumber) {
+          setOrderNumber(data.orderNumber);
+          try {
+            localStorage.removeItem("pvcs_checkout_address");
+          } catch {
+            // ignore
+          }
+        } else if (retriesLeft > 0) {
+          await attempt(retriesLeft - 1, 5000);
+        }
+      } catch (err) {
+        console.error("Erro ao registrar pedido pendente:", err);
+        if (!cancelled && retriesLeft > 0) {
+          await attempt(retriesLeft - 1, 5000);
+        }
+      }
+    };
+
+    void attempt(2, 0);
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

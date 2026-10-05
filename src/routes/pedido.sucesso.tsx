@@ -6,6 +6,48 @@ import { Button } from "@/components/ui/button";
 import { clearCart } from "@/data/cart";
 import { BACKEND_URL } from "@/lib/backend";
 import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+
+/** Aguarda a sessão restaurar (o Auth pode chegar nulo no 1º render). */
+function waitForAuthUser(timeoutMs = 10000): Promise<unknown> {
+  if (auth.currentUser) return Promise.resolve(auth.currentUser);
+  return new Promise((resolve) => {
+    let done = false;
+    const timer = setTimeout(() => {
+      if (!done) {
+        done = true;
+        unsubscribe();
+        resolve(auth.currentUser || null);
+      }
+    }, timeoutMs);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!done) {
+        done = true;
+        clearTimeout(timer);
+        unsubscribe();
+        resolve(user);
+      }
+    });
+  });
+}
+
+function readStoredAddress(): string {
+  try {
+    return localStorage.getItem("pvcs_checkout_address") || "";
+  } catch {
+    return "";
+  }
+}
+
+function clearStoredAddress(): void {
+  try {
+    localStorage.removeItem("pvcs_checkout_address");
+  } catch {
+    // ignore
+  }
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const Route = createFileRoute("/pedido/sucesso")({
   ssr: false,
@@ -18,44 +60,56 @@ export const Route = createFileRoute("/pedido/sucesso")({
 function OrderSuccessPage() {
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState("");
+  const [confirming, setConfirming] = useState(true);
 
-  const confirmOrder = async () => {
+  const confirmOrder = async (isRetry = false) => {
     const params = new URLSearchParams(window.location.search);
     const paymentId =
       params.get("payment_id") || params.get("collection_id") || params.get("collectionId");
     if (!paymentId) {
       setOrderNumber(null);
+      setConfirming(false);
       clearCart();
       return;
     }
-    try {
-      const idToken = await auth.currentUser?.getIdToken().catch(() => null);
-      let storedAddr = "";
+    // Espera a sessão (evita 401 com Auth ainda restaurando)
+    await waitForAuthUser();
+    const storedAddr = readStoredAddress();
+    const query = new URLSearchParams({ payment_id: paymentId });
+    if (storedAddr) query.set("addr", storedAddr);
+
+    // Tentativas automáticas com espera crescente antes de mostrar erro
+    const delays = isRetry ? [0] : [0, 2500, 6000];
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < delays.length; attempt++) {
+      if (delays[attempt] > 0) await sleep(delays[attempt]);
       try {
-        storedAddr = localStorage.getItem("pvcs_checkout_address") || "";
-        localStorage.removeItem("pvcs_checkout_address");
-      } catch {
-        // ignore
+        const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+        const res = await fetch(
+          `${BACKEND_URL}/api/confirmar-pedido?${query.toString()}`,
+          idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : undefined,
+        );
+        const data = (await res.json().catch(() => ({}))) as {
+          orderNumber?: string;
+          error?: string;
+        };
+        if (!res.ok) throw new Error(data.error || "Falha ao registrar pedido.");
+        if (data.orderNumber) setOrderNumber(data.orderNumber);
+        clearStoredAddress();
+        clearCart();
+        setConfirmError("");
+        setConfirming(false);
+        return;
+      } catch (err) {
+        lastError = err;
+        console.error(`Erro ao confirmar pedido (tentativa ${attempt + 1}):`, err);
       }
-      const query = new URLSearchParams({ payment_id: paymentId });
-      if (storedAddr) query.set("addr", storedAddr);
-      const res = await fetch(
-        `${BACKEND_URL}/api/confirmar-pedido?${query.toString()}`,
-        idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : undefined,
-      );
-      const data = (await res.json().catch(() => ({}))) as {
-        orderNumber?: string;
-        error?: string;
-      };
-      if (!res.ok) throw new Error(data.error || "Falha ao registrar pedido.");
-      if (data.orderNumber) setOrderNumber(data.orderNumber);
-      clearCart();
-    } catch (err) {
-      console.error("Erro ao confirmar pedido:", err);
-      setConfirmError(
-        "Pagamento aprovado, mas não consegui registrar o pedido. Toque abaixo para tentar de novo.",
-      );
     }
+    console.error("Erro ao confirmar pedido:", lastError);
+    setConfirming(false);
+    setConfirmError(
+      "Pagamento aprovado, mas não consegui registrar o pedido. Toque abaixo para tentar de novo.",
+    );
   };
 
   useEffect(() => {
@@ -92,12 +146,16 @@ function OrderSuccessPage() {
                 size="sm"
                 onClick={() => {
                   setConfirmError("");
-                  void confirmOrder();
+                  setConfirming(true);
+                  void confirmOrder(true);
                 }}
               >
                 Tentar registrar de novo
               </Button>
             </div>
+          )}
+          {confirming && !orderNumber && !confirmError && (
+            <p className="mt-3 text-xs text-muted-foreground">Registrando seu pedido...</p>
           )}
           <Button asChild className="mt-6 h-11 w-full">
             <Link to="/">
