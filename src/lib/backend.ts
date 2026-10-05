@@ -17,6 +17,14 @@ export interface CreatePreferenceInput {
   cepDestino: string;
   email: string;
   couponCode?: string;
+  address?: {
+    cep: string;
+    street: string;
+    number: string;
+    complement: string;
+    city: string;
+    state: string;
+  };
 }
 
 export interface CreatePreferenceResponse {

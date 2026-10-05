@@ -241,6 +241,13 @@ export function ShippingTracker() {
                       {order.phone && (
                         <p className="text-[11px] text-gray-500">{order.phone}</p>
                       )}
+                      {order.address && (
+                        <p className="mt-0.5 text-[11px] text-gray-600">
+                          {order.address.street}
+                          {order.address.number ? `, ${order.address.number}` : ""} —{" "}
+                          {order.address.city}/{order.address.state} {order.address.cep}
+                        </p>
+                      )}
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {wa ? (
                           <a

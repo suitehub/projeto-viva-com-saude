@@ -287,7 +287,31 @@ function CheckoutPage() {
         cepDestino: payload.customer.cep,
         email: payload.customer.email,
         couponCode: appliedCoupon?.coupon.code,
+        address: {
+          cep: payload.customer.cep,
+          street: payload.customer.address,
+          number: payload.customer.number,
+          complement: payload.customer.complement,
+          city: payload.customer.city,
+          state: payload.customer.state,
+        },
       });
+      // Guarda o endereço para confirmar o pedido na volta (se o MP não devolver).
+      try {
+        localStorage.setItem(
+          "pvcs_checkout_address",
+          JSON.stringify({
+            cep: payload.customer.cep,
+            street: payload.customer.address,
+            number: payload.customer.number,
+            complement: payload.customer.complement,
+            city: payload.customer.city,
+            state: payload.customer.state,
+          }),
+        );
+      } catch {
+        // ignore
+      }
       window.location.href = payment.init_point || payment.sandbox_init_point || "";
     } catch (err) {
       console.error("Erro ao iniciar pagamento:", err);

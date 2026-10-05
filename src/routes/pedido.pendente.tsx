@@ -27,11 +27,19 @@ function OrderPendingPage() {
     const paymentId =
       params.get("payment_id") || params.get("collection_id") || params.get("collectionId");
     if (!paymentId) return;
+    let storedAddr = "";
+    try {
+      storedAddr = localStorage.getItem("pvcs_checkout_address") || "";
+    } catch {
+      // ignore
+    }
+    const params = new URLSearchParams({ payment_id: paymentId });
+    if (storedAddr) params.set("addr", storedAddr);
     auth.currentUser
       ?.getIdToken()
       .catch(() => null)
       .then((idToken) =>
-        fetch(`${BACKEND_URL}/api/confirmar-pedido?payment_id=${encodeURIComponent(paymentId)}`, {
+        fetch(`${BACKEND_URL}/api/confirmar-pedido?${params.toString()}`, {
           headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
         }),
       )

@@ -30,8 +30,17 @@ function OrderSuccessPage() {
     }
     try {
       const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+      let storedAddr = "";
+      try {
+        storedAddr = localStorage.getItem("pvcs_checkout_address") || "";
+        localStorage.removeItem("pvcs_checkout_address");
+      } catch {
+        // ignore
+      }
+      const params = new URLSearchParams({ payment_id: paymentId });
+      if (storedAddr) params.set("addr", storedAddr);
       const res = await fetch(
-        `${BACKEND_URL}/api/confirmar-pedido?payment_id=${encodeURIComponent(paymentId)}`,
+        `${BACKEND_URL}/api/confirmar-pedido?${params.toString()}`,
         idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : undefined,
       );
       const data = (await res.json().catch(() => ({}))) as {

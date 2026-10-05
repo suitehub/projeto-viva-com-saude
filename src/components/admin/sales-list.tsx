@@ -584,7 +584,19 @@ export function SalesList() {
               <div className="rounded-lg bg-gray-50 p-3 border border-gray-100">
                 <p className="font-bold text-gray-800 text-sm mb-1">{viewOrderModal.customer}</p>
                 <p className="text-gray-600">E-mail: {viewOrderModal.email}</p>
-                <p className="text-gray-600">Telefone: {viewOrderModal.phone}</p>
+                <p className="text-gray-600">Telefone: {viewOrderModal.phone || "—"}</p>
+                {viewOrderModal.address && (
+                  <p className="mt-1 border-t border-gray-200 pt-1 text-gray-600">
+                    Entrega: {viewOrderModal.address.street}
+                    {viewOrderModal.address.number ? `, ${viewOrderModal.address.number}` : ""}
+                    {viewOrderModal.address.complement
+                      ? ` - ${viewOrderModal.address.complement}`
+                      : ""}
+                    {" — "}
+                    {viewOrderModal.address.city}/{viewOrderModal.address.state}{" "}
+                    {viewOrderModal.address.cep}
+                  </p>
+                )}
               </div>
 
               {/* Products Box */}

@@ -18,6 +18,15 @@ export interface SaleOrderItem {
   price: number;
 }
 
+export interface SaleOrderAddress {
+  street: string;
+  number: string;
+  complement: string;
+  city: string;
+  state: string;
+  cep: string;
+}
+
 export interface SaleOrder {
   id: string;
   orderNumber: string;
@@ -37,6 +46,8 @@ export interface SaleOrder {
   statusFilter: "arquivar" | "cobrar" | "embalar" | "enviar" | "retirar";
   /** Etapa de atendimento do pedido (novo pipeline). */
   fulfillmentStatus?: FulfillmentStatus;
+  /** Endereço de entrega (do checkout ou do MP). */
+  address?: SaleOrderAddress;
   userId?: string;
   notes?: string;
 }
