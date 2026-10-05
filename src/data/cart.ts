@@ -8,6 +8,7 @@ export type CartMap = Record<string, number>;
 
 const STORAGE_KEY = "pvcs_cart";
 const STORAGE_UPDATED_KEY = "pvcs_cart_updated";
+const STORAGE_SYNCED_KEY = "pvcs_cart_synced";
 const CART_EVENT = "pvcs_cart_change";
 const CART_DOC_ID = "active";
 const MAX_QTY_PER_ITEM = 99;
@@ -18,11 +19,62 @@ const syncedUids = new Set<string>();
 /** Reseta a sincronia (usado no logout). */
 export function resetCartSync(): void {
   syncedUids.clear();
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.removeItem(STORAGE_SYNCED_KEY);
+    } catch {
+      // ignore
+    }
+  }
 }
 
 function readCartUpdatedAt(): number {
   if (typeof window === "undefined") return 0;
   return Number(localStorage.getItem(STORAGE_UPDATED_KEY)) || 0;
+}
+
+/** Foto do carrinho na última sincronia bem-sucedida (base da junção). */
+function readSyncedCart(): CartMap {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(STORAGE_SYNCED_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") return parsed as CartMap;
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+function writeSyncedCart(cart: CartMap): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_SYNCED_KEY, JSON.stringify(cart));
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Junta local + nuvem sem duplicar: soma só o que mudou de cada lado
+ * desde a última base sincronizada. Recarregar a página não duplica.
+ */
+function mergeCarts(base: CartMap, local: CartMap, remote: CartMap): CartMap {
+  const merged: CartMap = {};
+  const keys = new Set([...Object.keys(base), ...Object.keys(local), ...Object.keys(remote)]);
+  for (const key of keys) {
+    const qty =
+      (base[key] ?? 0) + (local[key] ?? 0) - (base[key] ?? 0) + (remote[key] ?? 0) - (base[key] ?? 0);
+    if (qty > 0) merged[key] = Math.min(MAX_QTY_PER_ITEM, Math.floor(qty));
+  }
+  return merged;
+}
+
+function sameCart(a: CartMap, b: CartMap): boolean {
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  return keysA.length === keysB.length && keysA.every((key) => a[key] === b[key]);
 }
 
 export interface FreightOption {
@@ -200,7 +252,7 @@ export function useCart(products: Product[] = []) {
   }, []);
 
   // Sincronia login/nuvem (uma única vez por sessão por usuário):
-  // - primeira vez: soma local + nuvem (caso tenha comprado offline);
+  // - primeira vez: junta só os deltas desde a base (sem somar tudo de novo);
   // - depois: vence o lado mais recente (sem somar de novo).
   useEffect(() => {
     if (!uid) return;
@@ -210,10 +262,7 @@ export function useCart(products: Product[] = []) {
           const localUpdatedAt = readCartUpdatedAt();
           if (updatedAt > localUpdatedAt) {
             const current = readCart();
-            const same =
-              Object.keys(remote).length === Object.keys(current).length &&
-              Object.entries(remote).every(([key, qty]) => current[key] === qty);
-            if (!same) {
+            if (!sameCart(remote, current)) {
               setCartState(remote);
               try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
@@ -221,6 +270,7 @@ export function useCart(products: Product[] = []) {
               } catch {
                 // ignore
               }
+              writeSyncedCart(remote);
             }
           }
         })
@@ -231,13 +281,17 @@ export function useCart(products: Product[] = []) {
     pullCartFromFirestore(uid)
       .then(({ cart: remote }) => {
         const local = readCart();
-        const merged: CartMap = { ...remote };
-        for (const [key, qty] of Object.entries(local)) {
-          merged[key] = Math.min(MAX_QTY_PER_ITEM, (merged[key] ?? 0) + qty);
+        // Iguais = mesmo dado dos dois lados (ex.: recarregou): não soma.
+        const merged = sameCart(local, remote)
+          ? local
+          : mergeCarts(readSyncedCart(), local, remote);
+        if (!sameCart(merged, local)) {
+          setCartState(merged);
+          writeCart(merged);
         }
-        setCartState(merged);
-        writeCart(merged);
-        return pushCartToFirestore(uid, merged).catch(() => {});
+        return pushCartToFirestore(uid, merged)
+          .then(() => writeSyncedCart(merged))
+          .catch(() => {});
       })
       .catch(() => {});
   }, [uid]);
@@ -247,7 +301,10 @@ export function useCart(products: Product[] = []) {
     if (!uid || !syncedUids.has(uid)) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      pushCartToFirestore(uid, readCart()).catch(() => {});
+      const snapshot = readCart();
+      pushCartToFirestore(uid, snapshot)
+        .then(() => writeSyncedCart(snapshot))
+        .catch(() => {});
     }, 600);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
