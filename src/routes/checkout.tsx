@@ -130,6 +130,7 @@ function CheckoutPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           cepDestino: cepDigits,
+          subtotal,
           items: items.map(({ product, qty }) => ({
             qty,
             weightKg: product.weightKg,
@@ -140,7 +141,7 @@ function CheckoutPage() {
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
-        options?: Array<{ id: string; label: string; price: number; deadlineDays?: number }>;
+        options?: Array<{ id: string; label: string; price: number; deadlineDays?: number; freePromo?: boolean }>;
         error?: string;
       };
       if (!res.ok || !data.options?.length) {
@@ -149,7 +150,11 @@ function CheckoutPage() {
       const mapped = data.options.map((o) => ({
         id: o.id,
         label: o.label,
-        detail: o.deadlineDays ? `${o.deadlineDays} dias úteis` : "Correios",
+        detail: o.freePromo
+          ? "Grátis acima de R$ 100 em SP"
+          : o.deadlineDays
+            ? `${o.deadlineDays} dias úteis`
+            : "Correios",
         price: o.price,
       }));
       mapped.push({
