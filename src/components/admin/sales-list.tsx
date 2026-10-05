@@ -32,6 +32,12 @@ import {
   updateAdminOrderStatusInFirestore,
   deleteAdminOrderFromFirestore,
 } from "@/data/admin-orders-data";
+import { parseBrDate } from "@/lib/stats";
+import {
+  getSeenOrderIds,
+  markOrdersSeen,
+  ORDERS_SEEN_EVENT,
+} from "@/lib/order-notifications";
 
 export function SalesList() {
   const [sales, setSales] = useState<SaleOrder[]>(() => getCachedOrders());
@@ -50,6 +56,21 @@ export function SalesList() {
   const [viewOrderModal, setViewOrderModal] = useState<SaleOrder | null>(null);
   const [showAutoCancelModal, setShowAutoCancelModal] = useState(false);
   const [showCreateOrderNotice, setShowCreateOrderNotice] = useState(false);
+  // Pedidos novos (destaque sai ao visualizar)
+  const [seenIds, setSeenIds] = useState<Set<string>>(() => getSeenOrderIds());
+
+  useEffect(() => {
+    const handleSeen = () => setSeenIds(new Set(getSeenOrderIds()));
+    window.addEventListener(ORDERS_SEEN_EVENT, handleSeen);
+    return () => window.removeEventListener(ORDERS_SEEN_EVENT, handleSeen);
+  }, []);
+
+  const openOrder = (sale: SaleOrder) => {
+    setViewOrderModal(sale);
+    if (!seenIds.has(sale.id)) {
+      markOrdersSeen([sale.id]);
+    }
+  };
 
   const handleUpdatePaymentStatus = (
     orderId: string,
@@ -136,22 +157,30 @@ export function SalesList() {
   const countPorEnviar = sales.filter((s) => s.statusFilter === "enviar").length;
   const countPorRetirar = sales.filter((s) => s.statusFilter === "retirar").length;
 
-  const filteredSales = sales.filter((sale) => {
-    const matchesSearch =
-      sale.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sale.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sale.email.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredSales = sales
+    .filter((sale) => {
+      const matchesSearch =
+        sale.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        sale.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        sale.email.toLowerCase().includes(searchTerm.toLowerCase());
 
-    if (!matchesSearch) return false;
+      if (!matchesSearch) return false;
 
-    if (selectedStatusTab === "cobrar") return sale.statusFilter === "cobrar";
-    if (selectedStatusTab === "embalar") return sale.statusFilter === "embalar";
-    if (selectedStatusTab === "enviar") return sale.statusFilter === "enviar";
-    if (selectedStatusTab === "retirar") return sale.statusFilter === "retirar";
-    if (selectedStatusTab === "arquivar") return sale.statusFilter === "arquivar";
+      if (selectedStatusTab === "cobrar") return sale.statusFilter === "cobrar";
+      if (selectedStatusTab === "embalar") return sale.statusFilter === "embalar";
+      if (selectedStatusTab === "enviar") return sale.statusFilter === "enviar";
+      if (selectedStatusTab === "retirar") return sale.statusFilter === "retirar";
+      if (selectedStatusTab === "arquivar") return sale.statusFilter === "arquivar";
 
-    return true;
-  });
+      return true;
+    })
+    // Mais novos primeiro (data do pedido, cai para atualização)
+    .sort((a, b) => {
+      const dateA = parseBrDate(a.date)?.getTime() || 0;
+      const dateB = parseBrDate(b.date)?.getTime() || 0;
+      if (dateB !== dateA) return dateB - dateA;
+      return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+    });
 
   const toggleSelectAll = () => {
     if (selectedOrders.length === filteredSales.length) {
@@ -401,13 +430,14 @@ export function SalesList() {
                 filteredSales.map((sale) => {
                   const isSelected = selectedOrders.includes(sale.id);
                   const isDropdownOpen = activeDropdownId === sale.id;
+                  const isNew = !seenIds.has(sale.id);
 
                   return (
                     <tr
                       key={sale.id}
                       className={`hover:bg-[#f8fafd] transition-colors ${
                         isSelected ? "bg-blue-50/40" : ""
-                      }`}
+                      } ${isNew ? "bg-emerald-50/50" : ""}`}
                     >
                       {/* Checkbox */}
                       <td className="py-3 pl-4 pr-1">
@@ -423,11 +453,16 @@ export function SalesList() {
                       <td className="py-3 px-3 font-semibold text-[#0066d6]">
                         <button
                           type="button"
-                          onClick={() => setViewOrderModal(sale)}
+                          onClick={() => openOrder(sale)}
                           className="hover:underline font-semibold"
                         >
                           {sale.orderNumber}
                         </button>
+                        {isNew && (
+                          <span className="ml-1.5 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
+                            Novo
+                          </span>
+                        )}
                       </td>
 
                       {/* Data */}
@@ -437,7 +472,7 @@ export function SalesList() {
                       <td className="py-3 px-4 font-medium text-[#0066d6]">
                         <button
                           type="button"
-                          onClick={() => setViewOrderModal(sale)}
+                          onClick={() => openOrder(sale)}
                           className="hover:underline text-left"
                         >
                           {sale.customer}
@@ -543,7 +578,7 @@ export function SalesList() {
                       <td className="py-3 pr-4 text-center">
                         <button
                           type="button"
-                          onClick={() => setViewOrderModal(sale)}
+                          onClick={() => openOrder(sale)}
                           className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                           title="Ver detalhes da venda"
                         >

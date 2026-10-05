@@ -48,6 +48,7 @@ export interface SaleOrder {
   fulfillmentStatus?: FulfillmentStatus;
   /** Endereço de entrega (do checkout ou do MP). */
   address?: SaleOrderAddress;
+  updatedAt?: string;
   userId?: string;
   notes?: string;
 }

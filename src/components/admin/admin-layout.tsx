@@ -1,6 +1,16 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { subscribeCustomerMessages } from "@/data/admin-customers-data";
+import {
+  getCachedOrders,
+  subscribeAdminOrders,
+} from "@/data/admin-orders-data";
+import {
+  getSeenOrderIds,
+  markOrdersSeen,
+  playNotificationSound,
+  ORDERS_SEEN_EVENT,
+} from "@/lib/order-notifications";
 import logoImage from "@/assets/logoprojeto.png";
 import {
   BarChart3,
@@ -73,6 +83,39 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
     });
     return () => unsubscribe();
   }, []);
+
+  // Pedidos novos: selo em Vendas/Correios + som + marca vistos ao abrir a aba
+  const [orderIds, setOrderIds] = useState<string[]>(() => getCachedOrders().map((o) => o.id));
+  const [seenVersion, setSeenVersion] = useState(0);
+  const prevUnseen = useRef(0);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAdminOrders((loaded) => {
+      setOrderIds(loaded.map((o) => o.id));
+    });
+    const handleSeen = () => setSeenVersion((v) => v + 1);
+    window.addEventListener(ORDERS_SEEN_EVENT, handleSeen);
+    return () => {
+      unsubscribe();
+      window.removeEventListener(ORDERS_SEEN_EVENT, handleSeen);
+    };
+  }, []);
+
+  const unseenOrders = orderIds.filter((id) => !getSeenOrderIds().has(id)).length;
+  void seenVersion;
+
+  useEffect(() => {
+    if (unseenOrders > prevUnseen.current) {
+      playNotificationSound();
+    }
+    prevUnseen.current = unseenOrders;
+  }, [unseenOrders]);
+
+  useEffect(() => {
+    if (activeSubTab === "lista-de-vendas" || activeSubTab === "correios") {
+      markOrdersSeen(orderIds);
+    }
+  }, [activeSubTab, orderIds]);
 
   const statMenuItems: { id: StatSubTab; label: string }[] = [
     { id: "visao-geral", label: "Visão geral" },
@@ -257,7 +300,14 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
                             : "text-gray-700 hover:bg-gray-100"
                         }`}
                       >
-                        <span>Lista de vendas</span>
+                        <span className="flex items-center gap-2">
+                          Lista de vendas
+                          {unseenOrders > 0 && (
+                            <span className="rounded-full bg-[#0066d6] px-1.5 py-0.2 text-[10px] font-bold text-white">
+                              {unseenOrders}
+                            </span>
+                          )}
+                        </span>
                       </button>
                     </div>
                   )}
@@ -331,7 +381,22 @@ export function AdminLayout({ children, activeSubTab, onSelectSubTab }: AdminLay
                       activeSubTab === "correios" ? "text-white" : "text-gray-500"
                     }`}
                   />
-                  {!sidebarCollapsed && <span>Correios</span>}
+                  {!sidebarCollapsed && (
+                    <span className="flex items-center gap-2">
+                      Correios
+                      {unseenOrders > 0 && (
+                        <span
+                          className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                            activeSubTab === "correios"
+                              ? "bg-white text-[#0066d6]"
+                              : "bg-[#0066d6] text-white"
+                          }`}
+                        >
+                          {unseenOrders}
+                        </span>
+                      )}
+                    </span>
+                  )}
                 </button>
 
                 {/* Clientes Accordion matching Nuvemshop screenshot */}

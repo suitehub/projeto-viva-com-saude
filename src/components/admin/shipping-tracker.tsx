@@ -21,6 +21,12 @@ import {
   updateAdminOrderStatusInFirestore,
 } from "@/data/admin-orders-data";
 import { mapAdminWriteError } from "@/lib/admin-errors";
+import { parseBrDate } from "@/lib/stats";
+import {
+  getSeenOrderIds,
+  markOrdersSeen,
+  ORDERS_SEEN_EVENT,
+} from "@/lib/order-notifications";
 
 const STAGE_STYLES: Record<FulfillmentStatus, string> = {
   recebido: "bg-blue-100 text-[#0066d6]",
@@ -41,10 +47,16 @@ export function ShippingTracker() {
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<StageFilter>("aguardando");
   const [trackingDrafts, setTrackingDrafts] = useState<Record<string, string>>({});
+  const [seenIds, setSeenIds] = useState<Set<string>>(() => getSeenOrderIds());
 
   useEffect(() => {
     const unsubscribe = subscribeAdminOrders(setOrders);
-    return () => unsubscribe();
+    const handleSeen = () => setSeenIds(new Set(getSeenOrderIds()));
+    window.addEventListener(ORDERS_SEEN_EVENT, handleSeen);
+    return () => {
+      unsubscribe();
+      window.removeEventListener(ORDERS_SEEN_EVENT, handleSeen);
+    };
   }, []);
 
   const counts = useMemo(() => {
@@ -62,26 +74,34 @@ export function ShippingTracker() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return orders.filter((order) => {
-      const stage = getFulfillment(order);
-      if (stageFilter === "aguardando" && stage !== "recebido" && stage !== "preparando") {
-        return false;
-      }
-      if (
-        stageFilter !== "todas" &&
-        stageFilter !== "aguardando" &&
-        stage !== stageFilter
-      ) {
-        return false;
-      }
-      if (!q) return true;
-      return (
-        order.orderNumber.toLowerCase().includes(q) ||
-        order.customer.toLowerCase().includes(q) ||
-        order.email.toLowerCase().includes(q) ||
-        (order.trackingCode || "").toLowerCase().includes(q)
-      );
-    });
+    return orders
+      .filter((order) => {
+        const stage = getFulfillment(order);
+        if (stageFilter === "aguardando" && stage !== "recebido" && stage !== "preparando") {
+          return false;
+        }
+        if (
+          stageFilter !== "todas" &&
+          stageFilter !== "aguardando" &&
+          stage !== stageFilter
+        ) {
+          return false;
+        }
+        if (!q) return true;
+        return (
+          order.orderNumber.toLowerCase().includes(q) ||
+          order.customer.toLowerCase().includes(q) ||
+          order.email.toLowerCase().includes(q) ||
+          (order.trackingCode || "").toLowerCase().includes(q)
+        );
+      })
+      // Mais novos primeiro
+      .sort((a, b) => {
+        const dateA = parseBrDate(a.date)?.getTime() || 0;
+        const dateB = parseBrDate(b.date)?.getTime() || 0;
+        if (dateB !== dateA) return dateB - dateA;
+        return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+      });
   }, [orders, search, stageFilter]);
 
   const handleStageChange = (order: SaleOrder, stage: FulfillmentStatus) => {
@@ -92,7 +112,10 @@ export function ShippingTracker() {
         stage === "enviado" ? "Enviada" : stage === "cancelado" ? "Cancelada" : "Pendente",
     };
     updateAdminOrderStatusInFirestore(order.id, updates)
-      .then(() => toast.success(`"${order.orderNumber}" → ${FULFILLMENT_LABELS[stage]}`))
+      .then(() => {
+        toast.success(`"${order.orderNumber}" → ${FULFILLMENT_LABELS[stage]}`);
+        markOrdersSeen([order.id]);
+      })
       .catch((err) => toast.error(mapAdminWriteError(err, "a etapa da entrega")));
   };
 
@@ -110,6 +133,7 @@ export function ShippingTracker() {
     })
       .then(() => {
         toast.success("Código de rastreio salvo e pedido marcado como enviado!");
+        markOrdersSeen([order.id]);
         setTrackingDrafts((prev) => {
           const next = { ...prev };
           delete next[order.id];
@@ -211,14 +235,24 @@ export function ShippingTracker() {
               const stage = getFulfillment(order);
               const wa = whatsappLink(order);
               const draft = trackingDrafts[order.id] ?? order.trackingCode ?? "";
+              const isNew = !seenIds.has(order.id);
               return (
                 <div
                   key={order.id}
-                  className="rounded-xl border border-gray-200 bg-white p-4 shadow-xs"
+                  className={`rounded-xl border p-4 shadow-xs transition-colors ${
+                    isNew ? "border-emerald-300 bg-emerald-50/40" : "border-gray-200 bg-white"
+                  }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <p className="text-sm font-bold text-[#0066d6]">{order.orderNumber}</p>
+                      <p className="text-sm font-bold text-[#0066d6]">
+                        {order.orderNumber}
+                        {isNew && (
+                          <span className="ml-1.5 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
+                            Novo
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-gray-500">
                         {order.date} • {order.itemsCount}{" "}
                         {order.itemsCount === 1 ? "item" : "itens"} •{" "}
