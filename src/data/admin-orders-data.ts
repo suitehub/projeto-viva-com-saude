@@ -49,6 +49,8 @@ export interface SaleOrder {
   fulfillmentStatus?: FulfillmentStatus;
   /** Endereço de entrega (do checkout ou do MP). */
   address?: SaleOrderAddress;
+  /** CPF do comprador (só visível no admin). */
+  cpf?: string;
   updatedAt?: string;
   userId?: string;
   notes?: string;

@@ -620,6 +620,11 @@ export function SalesList() {
                 <p className="font-bold text-gray-800 text-sm mb-1">{viewOrderModal.customer}</p>
                 <p className="text-gray-600">E-mail: {viewOrderModal.email}</p>
                 <p className="text-gray-600">Telefone: {viewOrderModal.phone || "—"}</p>
+                {viewOrderModal.cpf && (
+                  <p className="text-gray-600">
+                    CPF: {viewOrderModal.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")}
+                  </p>
+                )}
                 {viewOrderModal.address && (
                   <p className="mt-1 border-t border-gray-200 pt-1 text-gray-600">
                     <span className="font-semibold text-gray-800 underline decoration-[#0066d6] decoration-2 underline-offset-2">

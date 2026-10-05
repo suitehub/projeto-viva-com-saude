@@ -312,6 +312,8 @@ function CheckoutPage() {
           JSON.stringify({
             cep: payload.customer.cep,
             name: payload.customer.fullName,
+            phone: payload.customer.phone,
+            cpf: payload.customer.cpf,
             street: payload.customer.address,
             number: payload.customer.number,
             complement: payload.customer.complement,

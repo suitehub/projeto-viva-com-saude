@@ -275,6 +275,11 @@ export function ShippingTracker() {
                       {order.phone && (
                         <p className="text-[11px] text-gray-500">{order.phone}</p>
                       )}
+                      {order.cpf && (
+                        <p className="text-[11px] text-gray-500">
+                          CPF: {order.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")}
+                        </p>
+                      )}
                       {order.address && (
                         <p className="mt-0.5 text-[11px] font-semibold text-gray-700 underline decoration-[#0066d6] decoration-2 underline-offset-2">
                           {order.address.street}

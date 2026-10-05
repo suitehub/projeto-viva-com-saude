@@ -112,7 +112,7 @@ service cloud.firestore {
 
     function isValidOrder(data) {
       return data.keys().hasAll(['id', 'orderNumber', 'total', 'customer', 'email']) &&
-        data.keys().hasOnly(['id', 'orderNumber', 'date', 'customer', 'email', 'phone', 'total', 'totalFormatted', 'itemsCount', 'products', 'paymentStatus', 'paymentMethod', 'shippingStatus', 'shippingCarrier', 'statusFilter', 'fulfillmentStatus', 'address', 'notifiedOwner', 'notes', 'mpPaymentId', 'mpStatus', 'updatedAt', 'userId']) &&
+        data.keys().hasOnly(['id', 'orderNumber', 'date', 'customer', 'email', 'phone', 'cpf', 'total', 'totalFormatted', 'itemsCount', 'products', 'paymentStatus', 'paymentMethod', 'shippingStatus', 'shippingCarrier', 'statusFilter', 'fulfillmentStatus', 'address', 'notifiedOwner', 'notes', 'mpPaymentId', 'mpStatus', 'updatedAt', 'userId']) &&
         data.id is string && data.id.size() > 0 && data.id.size() <= 64 &&
         data.orderNumber is string && data.orderNumber.size() > 0 && data.orderNumber.size() <= 40 &&
         data.total is number && data.total >= 0 &&
