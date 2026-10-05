@@ -587,14 +587,16 @@ export function SalesList() {
                 <p className="text-gray-600">Telefone: {viewOrderModal.phone || "—"}</p>
                 {viewOrderModal.address && (
                   <p className="mt-1 border-t border-gray-200 pt-1 text-gray-600">
-                    Entrega: {viewOrderModal.address.street}
-                    {viewOrderModal.address.number ? `, ${viewOrderModal.address.number}` : ""}
-                    {viewOrderModal.address.complement
-                      ? ` - ${viewOrderModal.address.complement}`
-                      : ""}
-                    {" — "}
-                    {viewOrderModal.address.city}/{viewOrderModal.address.state}{" "}
-                    {viewOrderModal.address.cep}
+                    <span className="font-semibold text-gray-800 underline decoration-[#0066d6] decoration-2 underline-offset-2">
+                      Entrega: {viewOrderModal.address.street}
+                      {viewOrderModal.address.number ? `, ${viewOrderModal.address.number}` : ""}
+                      {viewOrderModal.address.complement
+                        ? ` - ${viewOrderModal.address.complement}`
+                        : ""}
+                      {" — "}
+                      {viewOrderModal.address.city}/{viewOrderModal.address.state}{" "}
+                      {viewOrderModal.address.cep}
+                    </span>
                   </p>
                 )}
               </div>
