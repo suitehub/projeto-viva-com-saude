@@ -267,16 +267,3 @@
     transition-duration: 0.01ms !important;
   }
 }
-
-@keyframes hub-marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-@utility animate-marquee {
-  animation: hub-marquee 28s linear infinite;
-}
