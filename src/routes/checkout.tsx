@@ -59,6 +59,7 @@ export interface CheckoutPayload {
     address: string;
     number: string;
     complement: string;
+    neighborhood: string;
     city: string;
     state: string;
   };
@@ -82,6 +83,7 @@ function CheckoutPage() {
   const [address, setAddress] = useState("");
   const [number, setNumber] = useState("");
   const [complement, setComplement] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [freightId, setFreightId] = useState("");
@@ -243,8 +245,8 @@ function CheckoutPage() {
       setFormError("Informe um CEP válido com 8 dígitos.");
       return;
     }
-    if (!address.trim() || !number.trim() || !city.trim() || !state.trim()) {
-      setFormError("Complete o endereço de entrega (rua, número, cidade e estado).");
+    if (!address.trim() || !number.trim() || !neighborhood.trim() || !city.trim() || !state.trim()) {
+      setFormError("Complete o endereço de entrega (rua, número, bairro, cidade e estado).");
       return;
     }
     if (!freightId || !freightChoices.some((f) => f.id === freightId)) {
@@ -268,6 +270,7 @@ function CheckoutPage() {
         address: address.trim(),
         number: number.trim(),
         complement: complement.trim(),
+        neighborhood: neighborhood.trim(),
         city: city.trim(),
         state: state.trim(),
       },
@@ -292,6 +295,7 @@ function CheckoutPage() {
           street: payload.customer.address,
           number: payload.customer.number,
           complement: payload.customer.complement,
+          neighborhood: payload.customer.neighborhood,
           city: payload.customer.city,
           state: payload.customer.state,
         },
@@ -305,6 +309,7 @@ function CheckoutPage() {
             street: payload.customer.address,
             number: payload.customer.number,
             complement: payload.customer.complement,
+            neighborhood: payload.customer.neighborhood,
             city: payload.customer.city,
             state: payload.customer.state,
           }),
@@ -530,6 +535,15 @@ function CheckoutPage() {
                       value={complement}
                       onChange={(e) => setComplement(e.target.value)}
                       placeholder="Apto, bloco..."
+                      className="mt-1 h-11"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold">Bairro *</Label>
+                    <Input
+                      value={neighborhood}
+                      onChange={(e) => setNeighborhood(e.target.value)}
+                      placeholder="Centro"
                       className="mt-1 h-11"
                     />
                   </div>

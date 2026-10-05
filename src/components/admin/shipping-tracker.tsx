@@ -278,7 +278,9 @@ export function ShippingTracker() {
                       {order.address && (
                         <p className="mt-0.5 text-[11px] font-semibold text-gray-700 underline decoration-[#0066d6] decoration-2 underline-offset-2">
                           {order.address.street}
-                          {order.address.number ? `, ${order.address.number}` : ""} —{" "}
+                          {order.address.number ? `, ${order.address.number}` : ""}
+                          {order.address.complement ? ` - ${order.address.complement}` : ""}
+                          {order.address.neighborhood ? ` — Bairro ${order.address.neighborhood}` : ""} —{" "}
                           {order.address.city}/{order.address.state} {order.address.cep}
                         </p>
                       )}

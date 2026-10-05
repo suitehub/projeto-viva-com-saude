@@ -628,6 +628,9 @@ export function SalesList() {
                       {viewOrderModal.address.complement
                         ? ` - ${viewOrderModal.address.complement}`
                         : ""}
+                      {viewOrderModal.address.neighborhood
+                        ? ` — Bairro ${viewOrderModal.address.neighborhood}`
+                        : ""}
                       {" — "}
                       {viewOrderModal.address.city}/{viewOrderModal.address.state}{" "}
                       {viewOrderModal.address.cep}
