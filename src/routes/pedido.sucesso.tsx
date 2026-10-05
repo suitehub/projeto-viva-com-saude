@@ -37,10 +37,10 @@ function OrderSuccessPage() {
       } catch {
         // ignore
       }
-      const params = new URLSearchParams({ payment_id: paymentId });
-      if (storedAddr) params.set("addr", storedAddr);
+      const query = new URLSearchParams({ payment_id: paymentId });
+      if (storedAddr) query.set("addr", storedAddr);
       const res = await fetch(
-        `${BACKEND_URL}/api/confirmar-pedido?${params.toString()}`,
+        `${BACKEND_URL}/api/confirmar-pedido?${query.toString()}`,
         idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : undefined,
       );
       const data = (await res.json().catch(() => ({}))) as {

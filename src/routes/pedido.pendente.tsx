@@ -33,13 +33,13 @@ function OrderPendingPage() {
     } catch {
       // ignore
     }
-    const params = new URLSearchParams({ payment_id: paymentId });
-    if (storedAddr) params.set("addr", storedAddr);
+    const query = new URLSearchParams({ payment_id: paymentId });
+    if (storedAddr) query.set("addr", storedAddr);
     auth.currentUser
       ?.getIdToken()
       .catch(() => null)
       .then((idToken) =>
-        fetch(`${BACKEND_URL}/api/confirmar-pedido?${params.toString()}`, {
+        fetch(`${BACKEND_URL}/api/confirmar-pedido?${query.toString()}`, {
           headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
         }),
       )
