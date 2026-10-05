@@ -22,7 +22,6 @@ import { formatPrice } from "@/data/products";
 import { useStoreProducts } from "@/data/all-store-products";
 import { useCurrentUser } from "@/data/user-auth";
 import {
-  FREIGHT_OPTIONS,
   formatCep,
   formatCpf,
   isValidCpf,
@@ -85,76 +84,86 @@ function CheckoutPage() {
   const [complement, setComplement] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
-  const [freightId, setFreightId] = useState(FREIGHT_OPTIONS[0].id);
+  const [freightId, setFreightId] = useState("");
   const [formError, setFormError] = useState("");
   const [isPaying, setIsPaying] = useState(false);
-  // Cotação ao vivo dos Correios (PAC/SEDEX) + retirada; tabela fixa de fallback
-  const [freightChoices, setFreightChoices] = useState(FREIGHT_OPTIONS);
+  // Cotação dos Correios (PAC/SEDEX) + retirada — só após clicar em Calcular
+  const [freightChoices, setFreightChoices] = useState<
+    Array<{ id: string; label: string; detail: string; price: number }>
+  >([]);
   const [quoting, setQuoting] = useState(false);
+  const [quoteError, setQuoteError] = useState("");
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<CouponCheck | null>(null);
   const [couponError, setCouponError] = useState("");
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
   const freight = useMemo(
-    () => freightChoices.find((f) => f.id === freightId) || freightChoices[0],
+    () =>
+      freightChoices.find((f) => f.id === freightId) || {
+        id: "",
+        label: "A calcular",
+        detail: "",
+        price: 0,
+      },
     [freightChoices, freightId],
   );
 
-  // Ao completar o CEP, busca PAC/SEDEX reais (fallback: tabela fixa)
+  // Calcula o frete ao clicar (exige CEP completo)
   const cepDigits = cep.replace(/\D/g, "");
   const itemsSignature = items.map(({ product, qty }) => `${product.id}:${qty}`).join("|");
-  useEffect(() => {
-    if (cepDigits.length !== 8 || items.length === 0) return;
-    let cancelled = false;
+  void itemsSignature;
+
+  const handleQuoteFrete = async () => {
+    if (cepDigits.length !== 8) {
+      setQuoteError("Digite o CEP com 8 dígitos para calcular o frete.");
+      return;
+    }
+    if (items.length === 0 || quoting) return;
     setQuoting(true);
-    fetch(`${BACKEND_URL}/api/cotar-frete-correios`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cepDestino: cepDigits,
-        items: items.map(({ product, qty }) => ({
-          qty,
-          weightKg: product.weightKg,
-          lengthCm: product.lengthCm,
-          widthCm: product.widthCm,
-          heightCm: product.heightCm,
-        })),
-      }),
-    })
-      .then((res) => res.json().catch(() => ({})))
-      .then(
-        (data: {
-          options?: Array<{ id: string; label: string; price: number; deadlineDays?: number }>;
-        }) => {
-          if (cancelled || !data.options?.length) {
-            if (!cancelled) setQuoting(false);
-            return;
-          }
-          const mapped = data.options.map((o) => ({
-            id: o.id,
-            label: o.label,
-            detail: o.deadlineDays ? `${o.deadlineDays} dias úteis` : "Correios",
-            price: o.price,
-          }));
-          mapped.push({
-            id: "retirada",
-            label: "Retirar na loja",
-            detail: "Combinar pelo WhatsApp",
-            price: 0,
-          });
-          setFreightChoices(mapped);
-          setFreightId((prev) => (mapped.some((m) => m.id === prev) ? prev : mapped[0].id));
-          setQuoting(false);
-        },
-      )
-      .catch(() => {
-        if (!cancelled) setQuoting(false);
+    setQuoteError("");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/cotar-frete-correios`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cepDestino: cepDigits,
+          items: items.map(({ product, qty }) => ({
+            qty,
+            weightKg: product.weightKg,
+            lengthCm: product.lengthCm,
+            widthCm: product.widthCm,
+            heightCm: product.heightCm,
+          })),
+        }),
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [cepDigits, itemsSignature]);
+      const data = (await res.json().catch(() => ({}))) as {
+        options?: Array<{ id: string; label: string; price: number; deadlineDays?: number }>;
+        error?: string;
+      };
+      if (!res.ok || !data.options?.length) {
+        throw new Error(data.error || "Correios sem resposta para este CEP.");
+      }
+      const mapped = data.options.map((o) => ({
+        id: o.id,
+        label: o.label,
+        detail: o.deadlineDays ? `${o.deadlineDays} dias úteis` : "Correios",
+        price: o.price,
+      }));
+      mapped.push({
+        id: "retirada",
+        label: "Retirar na loja",
+        detail: "Combinar pelo WhatsApp",
+        price: 0,
+      });
+      setFreightChoices(mapped);
+      setFreightId((prev) => (mapped.some((m) => m.id === prev) ? prev : mapped[0].id));
+    } catch (err) {
+      setQuoteError(err instanceof Error ? err.message : "Não foi possível calcular o frete.");
+    } finally {
+      setQuoting(false);
+    }
+  };
 
   const couponItems = useMemo(
     () =>
@@ -236,6 +245,10 @@ function CheckoutPage() {
     }
     if (!address.trim() || !number.trim() || !city.trim() || !state.trim()) {
       setFormError("Complete o endereço de entrega (rua, número, cidade e estado).");
+      return;
+    }
+    if (!freightId || !freightChoices.some((f) => f.id === freightId)) {
+      setFormError("Calcule o frete e escolha uma opção de entrega.");
       return;
     }
 
@@ -518,10 +531,36 @@ function CheckoutPage() {
                 </div>
 
                 <div className="mt-5 space-y-2">
-                  <p className="text-xs font-semibold text-gray-700">
-                    Opções de entrega{" "}
-                    {quoting && <span className="font-normal text-gray-400">(cotando nos Correios...)</span>}
-                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs font-semibold text-gray-700">
+                      Opções de entrega{" "}
+                      <span className="font-normal text-gray-400">
+                        (preencha o CEP e calcule)
+                      </span>
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 w-full text-xs font-bold sm:w-auto"
+                      disabled={quoting || cepDigits.length !== 8 || items.length === 0}
+                      onClick={() => void handleQuoteFrete()}
+                    >
+                      <Truck className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                      {quoting
+                        ? "Calculando..."
+                        : freightChoices.length
+                          ? "Recalcular frete"
+                          : "Calcular frete"}
+                    </Button>
+                  </div>
+                  {quoteError && <p className="text-xs text-red-600">{quoteError}</p>}
+                  {freightChoices.length === 0 && !quoteError && (
+                    <p className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
+                      Informe o CEP acima e clique em Calcular frete para ver PAC, SEDEX e
+                      retirada.
+                    </p>
+                  )}
                   {freightChoices.map((option) => (
                     <label
                       key={option.id}
