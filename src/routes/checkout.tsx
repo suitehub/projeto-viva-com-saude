@@ -311,6 +311,7 @@ function CheckoutPage() {
           "pvcs_checkout_address",
           JSON.stringify({
             cep: payload.customer.cep,
+            name: payload.customer.fullName,
             street: payload.customer.address,
             number: payload.customer.number,
             complement: payload.customer.complement,
