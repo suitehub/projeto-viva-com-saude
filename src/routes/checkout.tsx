@@ -304,6 +304,12 @@ function CheckoutPage() {
           city: payload.customer.city,
           state: payload.customer.state,
         },
+        buyer: {
+          name: payload.customer.fullName,
+          email: payload.customer.email,
+          phone: payload.customer.phone,
+          cpf: payload.customer.cpf,
+        },
       });
       // Guarda o endereço para confirmar o pedido na volta (se o MP não devolver).
       try {

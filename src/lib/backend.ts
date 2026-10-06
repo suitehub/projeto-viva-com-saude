@@ -26,6 +26,12 @@ export interface CreatePreferenceInput {
     city: string;
     state: string;
   };
+  buyer?: {
+    name: string;
+    email: string;
+    phone: string;
+    cpf: string;
+  };
 }
 
 export interface CreatePreferenceResponse {
