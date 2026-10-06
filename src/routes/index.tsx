@@ -550,92 +550,56 @@ function Index() {
         </div>
       </header>
 
-      <section className="relative overflow-hidden bg-background">
-        {/* Fundo apenas no desktop: foto + overlay */}
-        <div className="absolute inset-0 hidden sm:block">
-          {HERO_SLIDES.map((slide, index) => (
-            <img
-              key={slide.src}
-              src={slide.src}
-              alt=""
-              aria-hidden="true"
-              width={1536}
-              height={864}
-              loading={index === 0 ? "eager" : "lazy"}
-              className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-1000 ${
-                index === heroIndex ? "opacity-100" : "opacity-0"
-              }`}
-            />
-          ))}
-          <div className="absolute inset-0 bg-hero-overlay" />
-        </div>
-
-        <div className="relative mx-auto max-w-7xl px-5 pb-10 pt-8 sm:flex sm:min-h-[36rem] sm:items-center sm:py-16 lg:px-8">
+      <section className="relative min-h-[30rem] overflow-hidden sm:min-h-[36rem]">
+        {HERO_SLIDES.map((slide, index) => (
+          <img
+            key={slide.src}
+            src={slide.src}
+            alt={slide.alt}
+            width={1536}
+            height={864}
+            loading={index === 0 ? "eager" : "lazy"}
+            aria-hidden={index === heroIndex ? undefined : true}
+            className={`absolute inset-0 h-full w-full object-cover object-[62%_center] transition-opacity duration-1000 sm:object-center ${
+              index === heroIndex ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        ))}
+        <div className="absolute inset-0 bg-hero-overlay" />
+        <div className="relative mx-auto flex min-h-[30rem] max-w-7xl items-center px-5 py-12 sm:min-h-[36rem] sm:py-16 lg:px-8">
           <div className="max-w-xl">
-            {/* Foto em bloco separado só no celular: sem corte estranho nem texto por cima */}
-            <div className="relative mb-6 h-64 overflow-hidden rounded-2xl shadow-card sm:hidden">
-              {HERO_SLIDES.map((slide, index) => (
-                <img
-                  key={slide.src}
-                  src={slide.src}
-                  alt={slide.alt}
-                  width={1536}
-                  height={864}
-                  loading={index === 0 ? "eager" : "lazy"}
-                  aria-hidden={index === heroIndex ? undefined : true}
-                  className={`absolute inset-0 h-full w-full object-cover object-[72%_center] transition-opacity duration-1000 ${
-                    index === heroIndex ? "opacity-100" : "opacity-0"
-                  }`}
-                />
-              ))}
-              <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-2">
-                {HERO_SLIDES.map((slide, index) => (
-                  <button
-                    key={slide.src}
-                    type="button"
-                    onClick={() => setHeroIndex(index)}
-                    aria-label={`Ver banner ${index + 1}: ${slide.alt}`}
-                    className={`h-2 rounded-full transition-all ${
-                      index === heroIndex
-                        ? "w-6 bg-white shadow"
-                        : "w-2 bg-white/50 hover:bg-white/80"
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-            <p className="mb-4 text-xs font-bold uppercase text-primary">
+            <p className="mb-3 text-[11px] font-bold uppercase text-primary sm:mb-4 sm:text-xs">
               {settings.heroTagline || "Saúde natural para uma vida melhor"}
             </p>
-            <h1 className="font-display text-4xl leading-[0.95] text-primary sm:text-6xl lg:text-7xl">
+            <h1 className="font-display text-3xl leading-[0.95] text-primary sm:text-6xl lg:text-7xl">
               {settings.heroTitleLine1 || "Mais saúde"}
               <br />
               {settings.heroTitleLine2 || "para o seu dia a dia."}
             </h1>
-            <p className="mt-5 max-w-md text-base leading-relaxed text-foreground/80">
+            <p className="mt-4 max-w-md text-sm leading-relaxed text-foreground/80 sm:mt-5 sm:text-base">
               {settings.heroSubtitle ||
                 "Produtos naturais, fitoterápicos e suplementos para o seu bem-estar físico e mental."}
             </p>
-            <Button asChild size="lg" className="mt-7 h-12 w-full rounded-full px-6 sm:w-auto">
+            <Button asChild size="lg" className="mt-6 h-11 rounded-full px-5 text-sm sm:mt-7 sm:h-12 sm:px-6 sm:text-base">
               <a href={settings.heroButtonLink || "#produtos"}>
                 {settings.heroButtonText || "Conheça nossos produtos"} <ArrowRight />
               </a>
             </Button>
-            <div className="mt-8 flex max-w-lg flex-col gap-3 border-t border-primary/15 pt-5 text-xs font-semibold text-primary sm:mt-10 sm:grid sm:grid-cols-3">
-              <span className="flex items-center justify-start gap-2">
-                <Leaf className="h-5 w-5 shrink-0" /> {settings.heroBadge1 || "100% naturais"}
+            <div className="mt-8 grid max-w-lg grid-cols-3 gap-2 border-t border-primary/15 pt-4 text-[0.65rem] font-semibold text-primary sm:mt-10 sm:gap-3 sm:pt-5 sm:text-xs">
+              <span className="flex items-center gap-1.5 sm:gap-2">
+                <Leaf className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" /> {settings.heroBadge1 || "100% naturais"}
               </span>
-              <span className="flex items-center justify-start gap-2 sm:justify-center sm:text-center">
-                <BadgeCheck className="h-5 w-5 shrink-0" /> {settings.heroBadge2 || "Qualidade comprovada"}
+              <span className="flex items-center justify-center gap-1.5 text-center sm:gap-2">
+                <BadgeCheck className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" /> {settings.heroBadge2 || "Qualidade comprovada"}
               </span>
-              <span className="flex items-center justify-start gap-2 sm:justify-end sm:text-right">
-                <Truck className="h-5 w-5 shrink-0" /> Entrega nacional
+              <span className="flex items-center justify-end gap-1.5 text-right sm:gap-2">
+                <Truck className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" /> Entrega nacional
               </span>
             </div>
           </div>
         </div>
-        {/* Bolinhas de navegação do carrossel (desktop) */}
-        <div className="absolute bottom-5 left-1/2 z-10 hidden -translate-x-1/2 gap-2 sm:flex">
+        {/* Bolinhas de navegação do carrossel */}
+        <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 gap-2 sm:bottom-5">
           {HERO_SLIDES.map((slide, index) => (
             <button
               key={slide.src}
