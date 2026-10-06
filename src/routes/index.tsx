@@ -550,7 +550,7 @@ function Index() {
         </div>
       </header>
 
-      <section className="relative min-h-[30rem] overflow-hidden sm:min-h-[36rem]">
+      <section className="relative min-h-[36rem] overflow-hidden sm:min-h-[36rem]">
         {HERO_SLIDES.map((slide, index) => (
           <img
             key={slide.src}
@@ -566,8 +566,8 @@ function Index() {
           />
         ))}
         <div className="absolute inset-0 bg-hero-overlay" />
-        <div className="relative mx-auto flex min-h-[30rem] max-w-7xl items-center px-5 py-12 sm:min-h-[36rem] sm:py-16 lg:px-8">
-          <div className="max-w-xl">
+        <div className="relative mx-auto flex min-h-[36rem] max-w-7xl items-center px-5 py-12 sm:min-h-[36rem] sm:py-16 lg:px-8">
+          <div className="max-w-[82%] sm:max-w-xl">
             <p className="mb-3 text-[11px] font-bold uppercase text-primary sm:mb-4 sm:text-xs">
               {settings.heroTagline || "Saúde natural para uma vida melhor"}
             </p>
@@ -576,9 +576,15 @@ function Index() {
               <br />
               {settings.heroTitleLine2 || "para o seu dia a dia."}
             </h1>
-            <p className="mt-4 max-w-md text-sm leading-relaxed text-foreground/80 sm:mt-5 sm:text-base">
-              {settings.heroSubtitle ||
-                "Produtos naturais, fitoterápicos e suplementos para o seu bem-estar físico e mental."}
+            <p className="mt-4 max-w-md text-balance text-sm leading-relaxed text-foreground/80 sm:mt-5 sm:text-base">
+              {settings.heroSubtitle ? (
+                settings.heroSubtitle
+              ) : (
+                <>
+                  Produtos naturais, fitoterápicos e
+                  <br className="sm:hidden" /> suplementos para o seu bem-estar físico e mental.
+                </>
+              )}
             </p>
             <Button asChild size="lg" className="mt-6 h-11 rounded-full px-5 text-sm sm:mt-7 sm:h-12 sm:px-6 sm:text-base">
               <a href={settings.heroButtonLink || "#produtos"}>
