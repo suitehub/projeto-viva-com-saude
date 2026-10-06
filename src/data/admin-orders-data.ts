@@ -39,7 +39,7 @@ export interface SaleOrder {
   totalFormatted: string;
   itemsCount: number;
   products: SaleOrderItem[];
-  paymentStatus: "Recebido" | "Recusado" | "Pendente";
+  paymentStatus: "Recebido" | "Recusado" | "Pendente" | "Estornado";
   paymentMethod: string;
   shippingStatus: "Enviada" | "Pendente" | "Cancelada";
   shippingCarrier: string;

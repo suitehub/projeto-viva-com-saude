@@ -133,16 +133,18 @@ export function StatisticsOverview() {
   const approvalRate = formatPercent(paidOrders.length, totalSalesCount);
 
   const paymentSplit = useMemo(() => {
-    const counts = { Recebido: 0, Pendente: 0, Recusado: 0 };
+    const counts = { Recebido: 0, Pendente: 0, Recusado: 0, Estornado: 0 };
     for (const o of periodOrders) {
       if (o.paymentStatus === "Recebido") counts.Recebido += 1;
       else if (o.paymentStatus === "Pendente") counts.Pendente += 1;
+      else if (o.paymentStatus === "Estornado") counts.Estornado += 1;
       else counts.Recusado += 1;
     }
     return [
       { label: "Pagos", count: counts.Recebido },
       { label: "Pendentes", count: counts.Pendente },
       { label: "Recusados", count: counts.Recusado },
+      { label: "Estornados", count: counts.Estornado },
     ];
   }, [periodOrders]);
   const paymentMax = Math.max(1, ...paymentSplit.map((s) => s.count));

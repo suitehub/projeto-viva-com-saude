@@ -74,7 +74,7 @@ export function SalesList() {
 
   const handleUpdatePaymentStatus = (
     orderId: string,
-    status: "Recebido" | "Recusado" | "Pendente",
+    status: "Recebido" | "Recusado" | "Pendente" | "Estornado",
   ) => {
     updateAdminOrderStatusInFirestore(orderId, { paymentStatus: status })
       .then(() => {
@@ -533,6 +533,11 @@ export function SalesList() {
                               <span>$</span>
                               <span>Pendente</span>
                             </span>
+                          ) : sale.paymentStatus === "Estornado" ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-700">
+                              <span>$</span>
+                              <span>Estornado</span>
+                            </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 rounded-full bg-[#fce8e6] px-2 py-0.5 text-[11px] font-semibold text-[#c5221f]">
                               <span>$</span>
@@ -758,7 +763,7 @@ export function SalesList() {
                     onChange={(e) =>
                       handleUpdatePaymentStatus(
                         viewOrderModal.id,
-                        e.target.value as "Recebido" | "Recusado" | "Pendente",
+                        e.target.value as "Recebido" | "Recusado" | "Pendente" | "Estornado",
                       )
                     }
                     className="w-full text-xs font-semibold rounded border border-gray-300 bg-white p-1.5 focus:border-[#0066d6] focus:outline-none"
@@ -766,6 +771,7 @@ export function SalesList() {
                     <option value="Recebido">Recebido</option>
                     <option value="Pendente">Pendente</option>
                     <option value="Recusado">Recusado</option>
+                    <option value="Estornado">Estornado</option>
                   </select>
                   <p className="text-gray-500 mt-1">{viewOrderModal.paymentMethod}</p>
                 </div>

@@ -51,6 +51,7 @@ export function StatisticsProducts() {
   const aggregated = useMemo(() => {
     const unitsByName = new Map<string, { units: number; revenue: number; name: string }>();
     for (const order of orders) {
+      if (order.paymentStatus === "Recusado" || order.paymentStatus === "Estornado") continue;
       for (const item of order.products || []) {
         const key = (item.name || "").trim().toLowerCase();
         if (!key) continue;
@@ -123,7 +124,10 @@ export function StatisticsProducts() {
     setCurrentPage(1);
   };
 
-  const weekBuckets = useMemo(() => last7DaysRevenue(orders), [orders]);
+  const weekBuckets = useMemo(
+    () => last7DaysRevenue(orders.filter((o) => o.paymentStatus === "Recebido")),
+    [orders],
+  );
   const weekMax = Math.max(1, ...weekBuckets.map((b) => b.total));
 
   const lowStock = useMemo(

@@ -99,6 +99,11 @@ export function UserOrders({ email }: { email: string }) {
                     <Truck className="h-3 w-3" />
                     {FULFILLMENT_LABELS[stage]}
                   </span>
+                  {order.paymentStatus === "Estornado" && (
+                    <span className="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-1 text-[11px] font-bold text-gray-700">
+                      Pagamento estornado
+                    </span>
+                  )}
                 </div>
 
                 {/* Linha de progresso */}
