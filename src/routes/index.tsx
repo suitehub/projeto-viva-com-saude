@@ -550,24 +550,60 @@ function Index() {
         </div>
       </header>
 
-      <section className="relative min-h-[33rem] overflow-hidden sm:min-h-[36rem]">
-        {HERO_SLIDES.map((slide, index) => (
-          <img
-            key={slide.src}
-            src={slide.src}
-            alt={slide.alt}
-            width={1536}
-            height={864}
-            loading={index === 0 ? "eager" : "lazy"}
-            aria-hidden={index === heroIndex ? undefined : true}
-            className={`absolute inset-0 h-full w-full object-cover object-[62%_center] transition-opacity duration-1000 sm:object-center ${
-              index === heroIndex ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        ))}
-        <div className="absolute inset-0 bg-hero-overlay" />
-        <div className="relative mx-auto flex min-h-[33rem] max-w-7xl items-center px-5 py-16 sm:min-h-[36rem] lg:px-8">
+      <section className="relative overflow-hidden bg-background">
+        {/* Fundo apenas no desktop: foto + overlay */}
+        <div className="absolute inset-0 hidden sm:block">
+          {HERO_SLIDES.map((slide, index) => (
+            <img
+              key={slide.src}
+              src={slide.src}
+              alt=""
+              aria-hidden="true"
+              width={1536}
+              height={864}
+              loading={index === 0 ? "eager" : "lazy"}
+              className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-1000 ${
+                index === heroIndex ? "opacity-100" : "opacity-0"
+              }`}
+            />
+          ))}
+          <div className="absolute inset-0 bg-hero-overlay" />
+        </div>
+
+        <div className="relative mx-auto max-w-7xl px-5 pb-10 pt-8 sm:flex sm:min-h-[36rem] sm:items-center sm:py-16 lg:px-8">
           <div className="max-w-xl">
+            {/* Foto em bloco separado só no celular: sem corte estranho nem texto por cima */}
+            <div className="relative mb-6 h-64 overflow-hidden rounded-2xl shadow-card sm:hidden">
+              {HERO_SLIDES.map((slide, index) => (
+                <img
+                  key={slide.src}
+                  src={slide.src}
+                  alt={slide.alt}
+                  width={1536}
+                  height={864}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  aria-hidden={index === heroIndex ? undefined : true}
+                  className={`absolute inset-0 h-full w-full object-cover object-[72%_center] transition-opacity duration-1000 ${
+                    index === heroIndex ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+              ))}
+              <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-2">
+                {HERO_SLIDES.map((slide, index) => (
+                  <button
+                    key={slide.src}
+                    type="button"
+                    onClick={() => setHeroIndex(index)}
+                    aria-label={`Ver banner ${index + 1}: ${slide.alt}`}
+                    className={`h-2 rounded-full transition-all ${
+                      index === heroIndex
+                        ? "w-6 bg-white shadow"
+                        : "w-2 bg-white/50 hover:bg-white/80"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
             <p className="mb-4 text-xs font-bold uppercase text-primary">
               {settings.heroTagline || "Saúde natural para uma vida melhor"}
             </p>
@@ -598,8 +634,8 @@ function Index() {
             </div>
           </div>
         </div>
-        {/* Bolinhas de navegação do carrossel */}
-        <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 gap-2">
+        {/* Bolinhas de navegação do carrossel (desktop) */}
+        <div className="absolute bottom-5 left-1/2 z-10 hidden -translate-x-1/2 gap-2 sm:flex">
           {HERO_SLIDES.map((slide, index) => (
             <button
               key={slide.src}
