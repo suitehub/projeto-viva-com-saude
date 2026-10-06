@@ -591,7 +591,7 @@ function Index() {
                 {settings.heroButtonText || "Conheça nossos produtos"} <ArrowRight />
               </a>
             </Button>
-            <div className="mt-8 grid max-w-lg grid-cols-3 gap-2 border-t border-primary/15 pt-4 text-[0.65rem] font-semibold text-primary sm:mt-10 sm:gap-3 sm:pt-5 sm:text-xs">
+            <div className="absolute inset-x-5 bottom-14 grid max-w-lg grid-cols-3 gap-2 border-t border-primary/15 pt-4 text-[0.65rem] font-semibold text-primary sm:static sm:mt-10 sm:gap-3 sm:pt-5 sm:text-xs">
               <span className="flex items-center gap-1.5 sm:gap-2">
                 <Leaf className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" /> {settings.heroBadge1 || "100% naturais"}
               </span>
