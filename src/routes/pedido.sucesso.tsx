@@ -51,6 +51,11 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const Route = createFileRoute("/pedido/sucesso")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>): { payment_id?: string } => {
+    return {
+      payment_id: typeof search.payment_id === "string" ? search.payment_id : undefined,
+    };
+  },
   head: () => ({
     meta: [{ title: "Pagamento aprovado | Projeto Viva com Saúde" }, { name: "robots", content: "noindex" }],
   }),

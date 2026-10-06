@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Clock, ArrowRight } from "lucide-react";
 import { SiteFooter, SiteHeader, TopBar, WhatsAppFab } from "@/components/site-chrome";
@@ -11,6 +11,11 @@ import { onAuthStateChanged } from "firebase/auth";
 
 export const Route = createFileRoute("/pedido/pendente")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>): { payment_id?: string } => {
+    return {
+      payment_id: typeof search.payment_id === "string" ? search.payment_id : undefined,
+    };
+  },
   head: () => ({
     meta: [{ title: "Pagamento pendente | Projeto Viva com Saúde" }, { name: "robots", content: "noindex" }],
   }),
@@ -18,14 +23,16 @@ export const Route = createFileRoute("/pedido/pendente")({
 });
 
 function OrderPendingPage() {
+  const navigate = useNavigate();
   const allProducts = useStoreProducts();
   const cart = useCart(allProducts);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
 
-  // Registra o pedido como pendente (não limpa o carrinho aqui).
-  // Espera a sessão restaurar e tenta com espera antes de desistir.
+  // Registra o pedido como pendente (não limpa o carrinho aqui) e
+  // acompanha a compensação: quando aprovar, vai para o sucesso sozinho.
   useEffect(() => {
     let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
     const params = new URLSearchParams(window.location.search);
     const paymentId =
       params.get("payment_id") || params.get("collection_id") || params.get("collectionId");
@@ -72,9 +79,22 @@ function OrderPendingPage() {
           `${BACKEND_URL}/api/confirmar-pedido?${query.toString()}`,
           { headers: idToken ? { Authorization: `Bearer ${idToken}` } : {} },
         );
-        const data = (await res.json().catch(() => ({}))) as { orderNumber?: string };
+        const data = (await res.json().catch(() => ({}))) as {
+          orderNumber?: string;
+          paymentStatus?: string;
+        };
         if (!res.ok) throw new Error("Falha ao registrar");
         if (cancelled) return;
+        // Compensou: vai para o sucesso sozinho (mantém o payment_id na URL)
+        if (data.paymentStatus === "Recebido") {
+          try {
+            localStorage.removeItem("pvcs_checkout_address");
+          } catch {
+            // ignore
+          }
+          navigate({ to: "/pedido/sucesso", search: { payment_id: paymentId } });
+          return;
+        }
         if (data.orderNumber) {
           setOrderNumber(data.orderNumber);
           try {
@@ -82,6 +102,8 @@ function OrderPendingPage() {
           } catch {
             // ignore
           }
+          // Continua observando a compensação a cada 20s enquanto a página aberta
+          pollTimer = setTimeout(() => void attempt(0, 0), 20000);
         } else if (retriesLeft > 0) {
           await attempt(retriesLeft - 1, 5000);
         }
@@ -96,6 +118,7 @@ function OrderPendingPage() {
     void attempt(2, 0);
     return () => {
       cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
     };
   }, []);
 
