@@ -394,7 +394,7 @@ function CheckoutPage() {
                   {items.map(({ product, qty }) => (
                     <div
                       key={product.id}
-                      className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 border-b border-border pb-4 last:border-0 last:pb-0"
+                      className="grid grid-cols-[3.75rem_minmax(0,1fr)] gap-2.5 border-b border-border pb-4 last:border-0 last:pb-0 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:gap-3"
                     >
                       {product.imageUrl ? (
                         <img
@@ -622,15 +622,15 @@ function CheckoutPage() {
                           : "border-border hover:border-primary/50"
                       }`}
                     >
-                      <span className="flex items-center gap-3">
+                      <span className="flex min-w-0 items-center gap-3">
                         <input
                           type="radio"
                           name="frete"
                           checked={freightId === option.id}
                           onChange={() => setFreightId(option.id)}
-                          className="h-4 w-4 accent-primary"
+                          className="h-4 w-4 shrink-0 accent-primary"
                         />
-                        <span>
+                        <span className="min-w-0">
                           <Truck className="mr-2 inline h-4 w-4 text-primary" />
                           <strong className="text-sm">{option.label}</strong>
                           <small className="ml-2 text-xs text-muted-foreground">

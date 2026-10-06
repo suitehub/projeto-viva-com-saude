@@ -229,7 +229,7 @@ function ProductPage() {
 
       <section className="mx-auto grid max-w-7xl gap-8 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:px-8">
         {/* Galeria */}
-        <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 sm:grid-cols-[5.5rem_minmax(0,1fr)]">
+        <div className="grid grid-cols-[3.75rem_minmax(0,1fr)] gap-2.5 sm:grid-cols-[5.5rem_minmax(0,1fr)] sm:gap-3">
           <div className="flex flex-col gap-3">
             {hasCustomImages
               ? customImages.map((imgUrl, index) => (
@@ -588,7 +588,7 @@ function ProductPage() {
                       <span className="truncate">{term}</span>
                     </dt>
                     <dd
-                      className={`shrink-0 font-semibold ${value === "Esgotado" ? "text-red-600" : term === "Disponibilidade" ? "text-primary" : ""}`}
+                      className={`min-w-0 shrink-0 truncate font-semibold ${value === "Esgotado" ? "text-red-600" : term === "Disponibilidade" ? "text-primary" : ""}`}
                     >
                       {value}
                     </dd>

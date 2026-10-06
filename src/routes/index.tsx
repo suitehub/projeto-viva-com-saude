@@ -416,7 +416,7 @@ function Index() {
                     .map((product) => (
                       <div
                         key={product.id}
-                        className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 border-b border-border pb-4"
+                        className="grid grid-cols-[3.75rem_minmax(0,1fr)] gap-2.5 border-b border-border pb-4 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:gap-3"
                       >
                         {product.imageUrl ? (
                           <img
@@ -571,7 +571,7 @@ function Index() {
             <p className="mb-4 text-xs font-bold uppercase text-primary">
               {settings.heroTagline || "Saúde natural para uma vida melhor"}
             </p>
-            <h1 className="font-display text-5xl leading-[0.95] text-primary sm:text-6xl lg:text-7xl">
+            <h1 className="font-display text-4xl leading-[0.95] text-primary sm:text-6xl lg:text-7xl">
               {settings.heroTitleLine1 || "Mais saúde"}
               <br />
               {settings.heroTitleLine2 || "para o seu dia a dia."}
@@ -580,19 +580,19 @@ function Index() {
               {settings.heroSubtitle ||
                 "Produtos naturais, fitoterápicos e suplementos para o seu bem-estar físico e mental."}
             </p>
-            <Button asChild size="lg" className="mt-7 h-12 rounded-full px-6">
+            <Button asChild size="lg" className="mt-7 h-12 w-full rounded-full px-6 sm:w-auto">
               <a href={settings.heroButtonLink || "#produtos"}>
                 {settings.heroButtonText || "Conheça nossos produtos"} <ArrowRight />
               </a>
             </Button>
-            <div className="mt-10 grid max-w-lg grid-cols-3 gap-3 border-t border-primary/15 pt-5 text-xs font-semibold text-primary">
+            <div className="mt-8 flex max-w-lg flex-col gap-3 border-t border-primary/15 pt-5 text-xs font-semibold text-primary sm:mt-10 sm:grid sm:grid-cols-3">
               <span className="flex items-center justify-start gap-2">
                 <Leaf className="h-5 w-5 shrink-0" /> {settings.heroBadge1 || "100% naturais"}
               </span>
-              <span className="flex items-center justify-center gap-2 text-center">
+              <span className="flex items-center justify-start gap-2 sm:justify-center sm:text-center">
                 <BadgeCheck className="h-5 w-5 shrink-0" /> {settings.heroBadge2 || "Qualidade comprovada"}
               </span>
-              <span className="flex items-center justify-end gap-2 text-right">
+              <span className="flex items-center justify-start gap-2 sm:justify-end sm:text-right">
                 <Truck className="h-5 w-5 shrink-0" /> Entrega nacional
               </span>
             </div>
@@ -777,7 +777,7 @@ function Index() {
         <div className="absolute inset-0 bg-banner-overlay" />
         <div className="relative mx-auto grid min-h-[28rem] max-w-7xl items-center px-5 py-12 sm:min-h-[25rem] lg:grid-cols-2 lg:px-8">
           <div className="max-w-xl">
-            <h2 className="font-display text-4xl leading-tight text-primary sm:text-5xl">
+            <h2 className="font-display text-3xl leading-tight text-primary sm:text-5xl">
               Cuidado natural
               <br />
               do seu jeito.

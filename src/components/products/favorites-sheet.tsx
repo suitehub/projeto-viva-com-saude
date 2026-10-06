@@ -129,7 +129,7 @@ export function FavoritesSheet({ open, onOpenChange, onAddToCart }: FavoritesShe
               {favoriteProducts.map((product) => (
                 <div
                   key={product.id}
-                  className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 pt-3 first:pt-0"
+                  className="grid grid-cols-[3.75rem_minmax(0,1fr)] gap-2.5 pt-3 first:pt-0 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:gap-3"
                 >
                   {product.imageUrl ? (
                     <img
