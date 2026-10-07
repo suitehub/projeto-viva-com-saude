@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, ArrowRight, AlertTriangle } from "lucide-react";
 import { SiteFooter, SiteHeader, TopBar, WhatsAppFab } from "@/components/site-chrome";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,13 @@ function OrderSuccessPage() {
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState("");
   const [confirming, setConfirming] = useState(true);
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollTimer.current) clearTimeout(pollTimer.current);
+    };
+  }, []);
 
   const confirmOrder = async (isRetry = false) => {
     const params = new URLSearchParams(window.location.search);
@@ -83,11 +90,7 @@ function OrderSuccessPage() {
     const query = new URLSearchParams({ payment_id: paymentId });
     if (storedAddr) query.set("addr", storedAddr);
 
-    // Tentativas automáticas com espera crescente antes de mostrar erro
-    const delays = isRetry ? [0] : [0, 2500, 6000];
-    let lastError: unknown = null;
-    for (let attempt = 0; attempt < delays.length; attempt++) {
-      if (delays[attempt] > 0) await sleep(delays[attempt]);
+    const tryOnce = async (): Promise<boolean> => {
       try {
         const idToken = await auth.currentUser?.getIdToken().catch(() => null);
         const res = await fetch(
@@ -104,17 +107,41 @@ function OrderSuccessPage() {
         clearCart();
         setConfirmError("");
         setConfirming(false);
-        return;
+        return true;
       } catch (err) {
-        lastError = err;
-        console.error(`Erro ao confirmar pedido (tentativa ${attempt + 1}):`, err);
+        console.error("Erro ao confirmar pedido:", err);
+        return false;
       }
+    };
+
+    // Tentativas imediatas com espera crescente
+    const delays = isRetry ? [0] : [0, 2500, 6000];
+    for (const delay of delays) {
+      if (delay > 0) await sleep(delay);
+      if (await tryOnce()) return;
     }
-    console.error("Erro ao confirmar pedido:", lastError);
+    // Segue tentando em segundo plano (o webhook costuma registrar antes);
+    // só mostra o botão manual se nada funcionar em ~3 min.
     setConfirming(false);
-    setConfirmError(
-      "Pagamento aprovado, mas não consegui registrar o pedido. Toque abaixo para tentar de novo.",
-    );
+    let runs = 0;
+    const poll = async () => {
+      runs += 1;
+      if (await tryOnce()) return;
+      if (runs < 9) {
+        pollTimer.current = setTimeout(() => void poll(), 20000);
+      } else {
+        setConfirmError(
+          "Pagamento aprovado, mas não consegui registrar o pedido. Toque abaixo para tentar de novo.",
+        );
+      }
+    };
+    if (!isRetry) {
+      pollTimer.current = setTimeout(() => void poll(), 20000);
+    } else {
+      setConfirmError(
+        "Pagamento aprovado, mas não consegui registrar o pedido. Toque abaixo para tentar de novo.",
+      );
+    }
   };
 
   useEffect(() => {

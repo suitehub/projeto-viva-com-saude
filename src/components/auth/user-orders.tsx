@@ -106,14 +106,18 @@ export function UserOrders({ email }: { email: string }) {
                   )}
                 </div>
 
-                {/* Linha de progresso */}
+                {/* Linha de progresso (preenche até a etapa atual; a atual pulsa) */}
                 {stage !== "cancelado" && (
                   <div className="mt-3 flex items-center gap-1">
                     {FULFILLMENT_STAGES.map((s, index) => (
                       <div key={s} className="flex flex-1 items-center gap-1 last:flex-none">
                         <div
                           className={`h-1.5 flex-1 rounded-full ${
-                            index <= stageIndex ? "bg-primary" : "bg-gray-200"
+                            index < stageIndex
+                              ? "bg-primary"
+                              : index === stageIndex
+                                ? "animate-pulse bg-primary/60"
+                                : "bg-gray-200"
                           }`}
                         />
                       </div>
