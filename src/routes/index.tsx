@@ -588,14 +588,14 @@ function Index() {
               to="/produto/$slug"
               params={{ slug: linked.slug }}
               aria-label={`Ver produto ${linked.name}`}
-              className="absolute inset-0 z-[5]"
+              className="absolute inset-0"
             >
               {img}
             </Link>
           );
         })}
         <div className="pointer-events-none absolute inset-0 bg-hero-overlay" />
-        <div className="relative mx-auto flex min-h-[36rem] max-w-7xl items-center px-5 py-12 sm:min-h-[36rem] sm:py-16 lg:px-8">
+        <div className="pointer-events-none relative z-10 mx-auto flex min-h-[36rem] max-w-7xl items-center px-5 py-12 sm:min-h-[36rem] sm:py-16 lg:px-8">
           <div className="max-w-[82%] sm:max-w-xl">
             <p className="mb-3 text-[11px] font-bold uppercase text-primary sm:mb-4 sm:text-xs">
               {settings.heroTagline || "Saúde natural para uma vida melhor"}
@@ -615,7 +615,7 @@ function Index() {
                 </>
               )}
             </p>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="pointer-events-auto flex flex-wrap items-center gap-3">
               <Button asChild size="lg" className="mt-6 h-11 rounded-full px-5 text-sm sm:mt-7 sm:h-12 sm:px-6 sm:text-base">
                 <a href={settings.heroButtonLink || "#produtos"}>
                   {settings.heroButtonText || "Conheça nossos produtos"} <ArrowRight />
@@ -643,7 +643,7 @@ function Index() {
           </div>
         </div>
         {/* Bolinhas de navegação do carrossel */}
-        <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 gap-2 sm:bottom-5">
+        <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2 sm:bottom-5">
           {HERO_SLIDES.map((slide, index) => (
             <button
               key={slide.src}
