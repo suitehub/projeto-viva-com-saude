@@ -636,13 +636,6 @@ function Index() {
                   {settings.heroButtonText || "Conheça nossos produtos"} <ArrowRight />
                 </a>
               </Button>
-              {currentHeroSlug && (
-                <Button asChild variant="outline" size="lg" className="mt-6 rounded-full bg-background/80 px-5 text-sm backdrop-blur sm:mt-7">
-                  <Link to="/produto/$slug" params={{ slug: currentHeroSlug }}>
-                    Ver {currentHeroProduct?.name ?? "produto"} <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              )}
             </div>
             <div className="absolute inset-x-5 bottom-14 grid max-w-lg grid-cols-3 gap-2 border-t border-primary/15 pt-4 text-[0.65rem] font-semibold text-primary sm:static sm:mt-10 sm:gap-3 sm:pt-5 sm:text-xs">
               <span className="flex items-center gap-1.5 sm:gap-2">
