@@ -179,72 +179,88 @@ async function fetchStoreProductsForPrerender() {
   }
 }
 
-if (serverModule && serverModule.default && typeof serverModule.default.fetch === "function") {
+// Páginas de produto a partir do shell da home (o SPA resolve /produto/x no cliente).
+// Não depende do SSR: mesmo que a rota seja client-only, o HTML estático sai
+// com as metas OG e o app abre o produto normalmente no navegador.
+{
   const productsForSeo = await fetchStoreProductsForPrerender();
-  console.log(`🛍️ Pré-renderizando ${productsForSeo.length} páginas de produto (Open Graph)...`);
-  for (const p of productsForSeo) {
-    try {
-      const requestPath = `${urlPrefix}/produto/${p.slug}`;
-      let res = await serverModule.default.fetch(new Request(`http://localhost${requestPath}`), {});
-      if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
-        const redirectLoc = res.headers.get("location");
-        res = await serverModule.default.fetch(
-          new Request(new URL(redirectLoc, "http://localhost").href),
-          {},
-        );
-      }
-      if (res.status !== 200) {
-        console.warn(`  ⚠️ Produto ${p.slug} retornou status ${res.status}`);
-        continue;
-      }
-      let html = await res.text();
-      const title = `${p.name} | Projeto Viva com Saúde`;
-      const pageUrl = `${SITE_URL}/produto/${p.slug}`;
-      const image =
-        p.imageUrl && p.imageUrl.startsWith("http") ? p.imageUrl : `${SITE_URL}/hero.png`;
-      html = html.replace(/<title>.*?<\/title>/, `<title>${escapeAttr(title)}</title>`);
-      const ogTags = [
-        `<meta property="og:title" content="${escapeAttr(title)}" />`,
-        `<meta property="og:description" content="${escapeAttr(p.short)}" />`,
-        `<meta property="og:type" content="product" />`,
-        `<meta property="og:url" content="${escapeAttr(pageUrl)}" />`,
-        `<meta property="og:image" content="${escapeAttr(image)}" />`,
-        `<meta name="twitter:card" content="summary_large_image" />`,
-        `<meta name="twitter:title" content="${escapeAttr(title)}" />`,
-        `<meta name="twitter:description" content="${escapeAttr(p.short)}" />`,
-        `<meta name="twitter:image" content="${escapeAttr(image)}" />`,
-      ].join("\n    ");
-      if (!html.includes("l.search[1] === '/'") && html.includes("</head>")) {
-        html = html.replace("</head>", `${spaDecodeScript}\n    ${ogTags}\n  </head>`);
-      } else if (html.includes("</head>")) {
-        html = html.replace("</head>", `    ${ogTags}\n  </head>`);
-      }
-      const outDir = path.join(distDir, "produto", p.slug);
-      fs.mkdirSync(outDir, { recursive: true });
-      fs.writeFileSync(path.join(outDir, "index.html"), html, "utf8");
-      console.log(`  ✓ Produto /produto/${p.slug}`);
-    } catch (err) {
-      console.warn(`  ⚠️ Erro ao renderizar produto ${p.slug}:`, err.message);
-    }
-  }
-
-  // Garante og:image na home (prévia ao compartilhar o link da loja).
+  console.log(`🛍️ Gerando ${productsForSeo.length} páginas de produto (Open Graph)...`);
+  let productTemplate = "";
   try {
-    const homePath = path.join(distDir, "index.html");
-    if (fs.existsSync(homePath)) {
-      let homeHtml = fs.readFileSync(homePath, "utf8");
-      if (!homeHtml.includes("og:image")) {
-        homeHtml = homeHtml.replace(
-          "</head>",
-          `    <meta property="og:image" content="${SITE_URL}/hero.png" />\n    <meta property="og:url" content="${SITE_URL}/" />\n  </head>`,
-        );
-        fs.writeFileSync(homePath, homeHtml, "utf8");
-        console.log("  ✓ og:image adicionado à home");
+    productTemplate = fs.readFileSync(path.join(distDir, "index.html"), "utf8");
+  } catch (err) {
+    console.warn("  ⚠️ Shell da home ausente, pulando páginas de produto:", err.message);
+  }
+  if (productTemplate && productsForSeo.length > 0) {
+    for (const p of productsForSeo) {
+      try {
+        const title = `${p.name} | Projeto Viva com Saúde`;
+        const pageUrl = `${SITE_URL}/produto/${p.slug}`;
+        const image =
+          p.imageUrl && p.imageUrl.startsWith("http") ? p.imageUrl : `${SITE_URL}/hero.png`;
+        let html = productTemplate;
+        // Remove OG/Twitter do template (são da home) e põe as do produto.
+        html = html.replace(/<meta[^>]+(?:og:|twitter:)[^>]*>\s*/g, "");
+        html = html.replace(/<title>.*?<\/title>/, `<title>${escapeAttr(title)}</title>`);
+        const ogTags = [
+          `<meta name="description" content="${escapeAttr(p.short)}" />`,
+          `<meta property="og:title" content="${escapeAttr(title)}" />`,
+          `<meta property="og:description" content="${escapeAttr(p.short)}" />`,
+          `<meta property="og:type" content="product" />`,
+          `<meta property="og:url" content="${escapeAttr(pageUrl)}" />`,
+          `<meta property="og:image" content="${escapeAttr(image)}" />`,
+          `<meta name="twitter:card" content="summary_large_image" />`,
+          `<meta name="twitter:title" content="${escapeAttr(title)}" />`,
+          `<meta name="twitter:description" content="${escapeAttr(p.short)}" />`,
+          `<meta name="twitter:image" content="${escapeAttr(image)}" />`,
+        ].join("\n    ");
+        if (html.includes("</head>")) {
+          html = html.replace("</head>", `    ${ogTags}\n  </head>`);
+        }
+        const outDir = path.join(distDir, "produto", p.slug);
+        fs.mkdirSync(outDir, { recursive: true });
+        fs.writeFileSync(path.join(outDir, "index.html"), html, "utf8");
+        console.log(`  ✓ Produto /produto/${p.slug}`);
+      } catch (err) {
+        console.warn(`  ⚠️ Erro ao gerar página do produto ${p.slug}:`, err.message);
       }
     }
-  } catch (err) {
-    console.warn("  ⚠️ Erro ao ajustar OG da home:", err.message);
   }
+}
+
+// Garante OG absoluto na home (WhatsApp exige URL absoluta na imagem).
+try {
+  const homePath = path.join(distDir, "index.html");
+  if (fs.existsSync(homePath)) {
+    let homeHtml = fs.readFileSync(homePath, "utf8");
+    let touched = false;
+    // og:image / twitter:image relativos -> absolutos com o domínio.
+    const absolutize = (tag) => {
+      const next = homeHtml.replace(
+        new RegExp(`(<meta[^>]*${tag}"[^>]*content=")(/[^"]*)(")`, "g"),
+        (m, a, b, c) => `${a}${SITE_URL}${b}${c}`,
+      );
+      if (next !== homeHtml) {
+        homeHtml = next;
+        touched = true;
+      }
+    };
+    absolutize("og:image");
+    absolutize("twitter:image");
+    if (!homeHtml.includes("og:url")) {
+      homeHtml = homeHtml.replace(
+        "</head>",
+        `    <meta property="og:url" content="${SITE_URL}/" />\n  </head>`,
+      );
+      touched = true;
+    }
+    if (touched) {
+      fs.writeFileSync(homePath, homeHtml, "utf8");
+      console.log("  ✓ OG da home ajustado (URLs absolutas)");
+    }
+  }
+} catch (err) {
+  console.warn("  ⚠️ Erro ao ajustar OG da home:", err.message);
 }
 
 // Se não gerou index.html por algum motivo, gera fallback completo com os assets JS e CSS
