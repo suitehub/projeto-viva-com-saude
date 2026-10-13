@@ -519,22 +519,26 @@ export function AllProductsPage() {
                         )
                       )}
                       {product.imageUrl ? (
-                        <img
-                          src={product.imageUrl}
-                          alt={product.name}
-                          className="aspect-[4/5] w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          referrerPolicy="no-referrer"
-                        />
+                        <Link to="/produto/$slug" params={{ slug: product.slug }} aria-label={`Ver ${product.name}`}>
+                          <img
+                            src={product.imageUrl}
+                            alt={product.name}
+                            className="aspect-[4/5] w-full cursor-pointer object-cover transition-transform duration-500 group-hover:scale-105"
+                            referrerPolicy="no-referrer"
+                          />
+                        </Link>
                       ) : (
-                        <div
-                          role="img"
-                          aria-label={`Pote de ${product.name}`}
-                          className="product-crop aspect-[4/5] w-full transition-transform duration-500 group-hover:scale-105"
-                          style={{
-                            backgroundImage: `url(${productsImage})`,
-                            backgroundPosition: product.imagePosition,
-                          }}
-                        />
+                        <Link to="/produto/$slug" params={{ slug: product.slug }} aria-label={`Ver ${product.name}`}>
+                          <div
+                            role="img"
+                            aria-label={`Pote de ${product.name}`}
+                            className="product-crop aspect-[4/5] w-full cursor-pointer transition-transform duration-500 group-hover:scale-105"
+                            style={{
+                              backgroundImage: `url(${productsImage})`,
+                              backgroundPosition: product.imagePosition,
+                            }}
+                          />
+                        </Link>
                       )}
                     </div>
 
@@ -543,7 +547,9 @@ export function AllProductsPage() {
                         {product.category}
                       </span>
                       <h3 className="mt-0.5 min-h-10 text-xs font-semibold leading-snug sm:text-sm text-foreground line-clamp-2">
-                        {product.name}
+                        <Link to="/produto/$slug" params={{ slug: product.slug }} className="hover:text-primary">
+                          {product.name}
+                        </Link>
                       </h3>
                     </div>
 

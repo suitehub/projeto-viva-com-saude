@@ -296,13 +296,18 @@ export async function logoutUser(): Promise<void> {
 }
 
 /**
- * E-mail raiz com poder total no Firestore (ver `firestore.rules` -> isBootstrappedAdmin).
- * Quem loga com este e-mail é admin automaticamente, sem precisar de doc em `admins`.
+ * E-mails raiz com poder total no Firestore (ver `firestore.rules` -> isBootstrappedAdmin).
+ * Quem loga com estes e-mails é admin automaticamente, sem precisar de doc em `admins`.
  */
 export const BOOTSTRAPPED_ADMIN_EMAIL = "rickyjorgecastro@gmail.com";
 
+export const BOOTSTRAPPED_ADMIN_EMAILS = [
+  BOOTSTRAPPED_ADMIN_EMAIL,
+  "mcrcunharocha@gmail.com",
+];
+
 export function isBootstrappedAdminEmail(email?: string | null): boolean {
-  return !!email && email.trim().toLowerCase() === BOOTSTRAPPED_ADMIN_EMAIL;
+  return !!email && BOOTSTRAPPED_ADMIN_EMAILS.includes(email.trim().toLowerCase());
 }
 
 /**

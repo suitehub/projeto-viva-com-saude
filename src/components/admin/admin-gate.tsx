@@ -199,8 +199,8 @@ function AdminBlockedScreen({ email, uid }: { email: string; uid: string }) {
           </p>
           <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-xs text-gray-700">
             <li>
-              Entre com o e-mail raiz <strong>rickyjorgecastro@gmail.com</strong>, ou peça a quem
-              tem acesso a ele.
+              Entre com um e-mail raiz (<strong>rickyjorgecastro@gmail.com</strong> ou{" "}
+              <strong>mcrcunharocha@gmail.com</strong>), ou peça a quem tem acesso a ele.
             </li>
             <li>
               No Firestore, abra a coleção <strong>admins</strong> e crie um documento com ID igual

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { Package, Truck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { CheckCircle2, Package, Star, Truck } from "lucide-react";
 import { formatPrice } from "@/data/products";
 import {
   SaleOrder,
@@ -8,6 +9,18 @@ import {
   getFulfillment,
   subscribeUserOrders,
 } from "@/data/admin-orders-data";
+import { getAllStoreProducts } from "@/data/all-store-products";
+import { useCurrentUser } from "@/data/user-auth";
+import {
+  ProductReview,
+  orderItemMatchesProduct,
+  saveProductReview,
+  subscribeReviewsByEmail,
+} from "@/data/product-reviews";
+import { StarRatingInput, ReviewStars } from "@/components/products/product-reviews-section";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 const STAGE_STYLES: Record<string, string> = {
   recebido: "bg-blue-100 text-[#0066d6]",
@@ -25,6 +38,9 @@ export function UserOrders({ email }: { email: string }) {
   const [orders, setOrders] = useState<SaleOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const { user } = useCurrentUser();
+  const [myReviews, setMyReviews] = useState<ProductReview[]>([]);
+  const [reviewingKey, setReviewingKey] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -48,6 +64,21 @@ export function UserOrders({ email }: { email: string }) {
       unsubscribe();
     };
   }, [email]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeReviewsByEmail(email, setMyReviews);
+    return () => unsubscribe();
+  }, [email]);
+
+  const storeProducts = useMemo(() => getAllStoreProducts(), [orders.length]);
+
+  const reviewedProductIds = useMemo(
+    () => new Set(myReviews.map((r) => String(r.productId))),
+    [myReviews],
+  );
+
+  const resolveStoreProduct = (itemName: string) =>
+    storeProducts.find((p) => orderItemMatchesProduct(itemName, p.name));
 
   return (
     <div id="minhas-compras" className="rounded-2xl border border-border bg-white p-6 shadow-xs sm:p-8 scroll-mt-24">
@@ -138,23 +169,179 @@ export function UserOrders({ email }: { email: string }) {
                   </p>
                 )}
 
-                <div className="mt-2 border-t border-gray-200 pt-2 text-xs text-gray-600">
-                  {order.products.map((item, idx) => (
-                    <p key={idx} className="flex justify-between py-0.5">
-                      <span className="truncate pr-2">
-                        {item.quantity}x {item.name}
-                      </span>
-                      <span className="shrink-0 font-semibold">
-                        {formatPrice(item.price * item.quantity)}
-                      </span>
-                    </p>
-                  ))}
+                <div className="mt-2 space-y-2 border-t border-gray-200 pt-2 text-xs text-gray-600">
+                  {order.products.map((item, idx) => {
+                    const isDelivered = stage === "entregue";
+                    const storeProduct = resolveStoreProduct(item.name);
+                    const reviewKey = storeProduct ? `${order.id}_${storeProduct.id}` : null;
+                    const alreadyReviewed = storeProduct
+                      ? reviewedProductIds.has(String(storeProduct.id))
+                      : false;
+                    const myReview = storeProduct
+                      ? myReviews.find((r) => String(r.productId) === String(storeProduct.id))
+                      : undefined;
+                    const isReviewing = reviewKey !== null && reviewingKey === reviewKey;
+                    return (
+                      <div key={idx} className="rounded-lg bg-white/60 py-1">
+                        <p className="flex justify-between py-0.5">
+                          <span className="truncate pr-2">
+                            {item.quantity}x {item.name}
+                          </span>
+                          <span className="shrink-0 font-semibold">
+                            {formatPrice(item.price * item.quantity)}
+                          </span>
+                        </p>
+                        {isDelivered && storeProduct && reviewKey && (
+                          <div className="mt-1.5">
+                            {alreadyReviewed && myReview ? (
+                              <p className="flex flex-wrap items-center gap-2 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-800">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Você avaliou com {myReview.rating}{" "}
+                                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                                {myReview.comment?.trim() ? ` — “${myReview.comment}”` : " (só estrelas)"}{" "}
+                                <Link
+                                  to="/produto/$slug"
+                                  params={{ slug: storeProduct.slug }}
+                                  className="font-bold text-primary hover:underline"
+                                >
+                                  Ver avaliação
+                                </Link>
+                              </p>
+                            ) : isReviewing ? (
+                              <ReviewForm
+                                productId={storeProduct.id}
+                                productSlug={storeProduct.slug}
+                                productName={storeProduct.name}
+                                orderId={order.id}
+                                userId={user?.id || ""}
+                                userName={user?.fullName || order.customer || "Cliente"}
+                                email={email}
+                                onDone={() => setReviewingKey(null)}
+                                onCancel={() => setReviewingKey(null)}
+                              />
+                            ) : (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8 gap-1.5 rounded-full px-3 text-[11px] font-bold"
+                                onClick={() => setReviewingKey(reviewKey)}
+                              >
+                                <Star className="h-3.5 w-3.5 text-amber-500" />
+                                Avaliar produto
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
+                {stage === "entregue" && (
+                  <p className="mt-2 text-[11px] text-gray-500">
+                    Produto entregue? Avalie com 1 a 5 estrelas e conte o que achou — sua avaliação
+                    aparece na página do produto com seu nome.
+                  </p>
+                )}
               </div>
             );
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function ReviewForm({
+  productId,
+  productSlug,
+  productName,
+  orderId,
+  userId,
+  userName,
+  email,
+  onDone,
+  onCancel,
+}: {
+  productId: string | number;
+  productSlug: string;
+  productName: string;
+  orderId: string;
+  userId: string;
+  userName: string;
+  email: string;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!userId) {
+      toast.info("Faça login para avaliar.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await saveProductReview({
+        productId,
+        productSlug,
+        productName,
+        userId,
+        userName,
+        email,
+        rating,
+        comment,
+        orderId,
+      });
+      toast.success("Avaliação publicada! Obrigado pelo feedback.");
+      onDone();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar a avaliação.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+      <p className="text-[11px] font-bold text-gray-800">Avaliar {productName}</p>
+      <div className="mt-2">
+        <StarRatingInput value={rating} onChange={setRating} />
+      </div>
+      <Textarea
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder="Conte o que achou do produto (opcional — pode avaliar só com estrelas)"
+        maxLength={1000}
+        rows={3}
+        className="mt-2 bg-white text-xs"
+      />
+      <div className="mt-2 flex items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          className="h-8 rounded-full px-4 text-[11px] font-bold"
+          disabled={saving}
+          onClick={handleSubmit}
+        >
+          {saving ? "Publicando..." : "Publicar avaliação"}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-8 rounded-full px-3 text-[11px]"
+          disabled={saving}
+          onClick={onCancel}
+        >
+          Cancelar
+        </Button>
+      </div>
+      <div className="mt-2 flex items-center gap-1.5 text-[11px] text-gray-500">
+        Prévia: <ReviewStars value={rating} className="h-3.5 w-3.5" />
+      </div>
     </div>
   );
 }

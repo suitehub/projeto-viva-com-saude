@@ -30,8 +30,9 @@ service cloud.firestore {
 
     function isBootstrappedAdmin() {
       return isSignedIn() &&
-        (request.auth.token.email == 'rickyjorgecastro@gmail.com' ||
-         (request.auth.token.email is string && request.auth.token.email.lower() == 'rickyjorgecastro@gmail.com'));
+        (request.auth.token.email is string && (
+          request.auth.token.email.lower() == 'rickyjorgecastro@gmail.com' ||
+          request.auth.token.email.lower() == 'mcrcunharocha@gmail.com'));
     }
 
     function isAdmin() {
@@ -128,6 +129,23 @@ service cloud.firestore {
         data.email is string && data.email.size() > 0 && data.email.size() <= 120;
     }
 
+    function isValidReview(data) {
+      return data.keys().hasAll(['id', 'productId', 'userId', 'userName', 'email', 'rating']) &&
+        data.keys().hasOnly(['id', 'productId', 'productSlug', 'productName', 'userId', 'userName', 'email', 'rating', 'comment', 'date', 'createdAt', 'orderId']) &&
+        data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+        data.productId is string && data.productId.size() > 0 && data.productId.size() <= 128 &&
+        data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+        data.userName is string && data.userName.size() > 0 && data.userName.size() <= 120 &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 120 &&
+        data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+        (!('productSlug' in data) || (data.productSlug is string && data.productSlug.size() <= 128)) &&
+        (!('productName' in data) || (data.productName is string && data.productName.size() <= 200)) &&
+        (!('comment' in data) || (data.comment is string && data.comment.size() <= 1000)) &&
+        (!('date' in data) || (data.date is string && data.date.size() <= 40)) &&
+        (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 40)) &&
+        (!('orderId' in data) || (data.orderId is string && data.orderId.size() <= 128));
+    }
+
     // --- 2. Users Collection ---
     // Perfis de usuário vivem SOMENTE no Firebase Authentication — nenhum
     // documento de perfil é gravado no Firestore pelo app. Leituras/escritas
@@ -212,6 +230,18 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin() && isValidId(settingId);
+    }
+
+    // --- 10b. Product Reviews (avaliações estilo marketplace) ---
+    // Leitura pública; criar só logado sendo o dono (userId == uid), rating 1-5.
+    // A elegibilidade (pedido entregue) é aplicada na UI em Minhas compras.
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(reviewId) &&
+        isValidReview(incoming()) &&
+        incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     // --- 11. Admins Collection ---

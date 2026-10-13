@@ -101,13 +101,14 @@ const benefits = [
   { icon: Leaf, title: "Produtos originais", copy: "e de alta qualidade" },
 ];
 
-// Carrossel da hero: 5 fotos de produtos em fade (5s cada), nesta ordem
+// Carrossel da hero: 5 fotos de produtos em fade (5s cada), nesta ordem.
+// productKey serve para ligar o banner ao produto (clique vai à página do produto).
 const HERO_SLIDES = [
-  { src: heroMounjaro, alt: "Mounjaro 100% Natural sobre pedestal de pedra" },
-  { src: heroMacaPeruana, alt: "Maca Peruana sobre pedestal de pedra" },
-  { src: heroFiocaps, alt: "Fiocaps sobre pedestal de pedra" },
-  { src: heroRilexMax, alt: "Rilex Max sobre pedestal de pedra" },
-  { src: heroColagenoTipo2, alt: "Colágeno Tipo 2 sobre pedestal de pedra" },
+  { src: heroMounjaro, alt: "Mounjaro 100% Natural sobre pedestal de pedra", productKey: "mounjaro" },
+  { src: heroMacaPeruana, alt: "Maca Peruana sobre pedestal de pedra", productKey: "maca peruana" },
+  { src: heroFiocaps, alt: "Fiocaps sobre pedestal de pedra", productKey: "fiocaps" },
+  { src: heroRilexMax, alt: "Rilex Max sobre pedestal de pedra", productKey: "rilex" },
+  { src: heroColagenoTipo2, alt: "Colágeno Tipo 2 sobre pedestal de pedra", productKey: "colageno" },
 ];
 
 const HERO_SLIDE_MS = 5000;
@@ -177,6 +178,19 @@ function Index() {
     if (!term) return;
     navigate({ to: "/produtos", search: { busca: term } });
   };
+
+  // Liga cada banner da hero ao produto correspondente (clique vai à página do produto).
+  const heroProductByKey = useMemo(() => {
+    const map: Record<string, (typeof storeProducts)[number] | undefined> = {};
+    for (const slide of HERO_SLIDES) {
+      const key = normalizeSearchText(slide.productKey);
+      map[slide.productKey] = storeProducts.find((p) =>
+        normalizeSearchText(`${p.name} ${p.category} ${p.slug}`).includes(key),
+      );
+    }
+    return map;
+  }, [storeProducts]);
+  const currentHeroProduct = heroProductByKey[HERO_SLIDES[heroIndex]?.productKey];
 
   const featuredProducts = useMemo(() => {
     const isFiltering = query.trim() !== "" || category !== "Todas";
@@ -551,21 +565,36 @@ function Index() {
       </header>
 
       <section className="relative min-h-[36rem] overflow-hidden sm:min-h-[36rem]">
-        {HERO_SLIDES.map((slide, index) => (
-          <img
-            key={slide.src}
-            src={slide.src}
-            alt={slide.alt}
-            width={1536}
-            height={864}
-            loading={index === 0 ? "eager" : "lazy"}
-            aria-hidden={index === heroIndex ? undefined : true}
-            className={`absolute inset-0 h-full w-full object-cover object-[62%_center] transition-opacity duration-1000 sm:object-center ${
-              index === heroIndex ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        ))}
-        <div className="absolute inset-0 bg-hero-overlay" />
+        {HERO_SLIDES.map((slide, index) => {
+          const linked = heroProductByKey[slide.productKey];
+          const img = (
+            <img
+              key={slide.src}
+              src={slide.src}
+              alt={slide.alt}
+              width={1536}
+              height={864}
+              loading={index === 0 ? "eager" : "lazy"}
+              aria-hidden={index === heroIndex ? undefined : true}
+              className={`absolute inset-0 h-full w-full object-cover object-[62%_center] transition-opacity duration-1000 sm:object-center ${
+                index === heroIndex ? "opacity-100" : "opacity-0"
+              } ${linked ? "cursor-pointer" : ""}`}
+            />
+          );
+          if (!linked || index !== heroIndex) return img;
+          return (
+            <Link
+              key={slide.src}
+              to="/produto/$slug"
+              params={{ slug: linked.slug }}
+              aria-label={`Ver produto ${linked.name}`}
+              className="absolute inset-0 z-[5]"
+            >
+              {img}
+            </Link>
+          );
+        })}
+        <div className="pointer-events-none absolute inset-0 bg-hero-overlay" />
         <div className="relative mx-auto flex min-h-[36rem] max-w-7xl items-center px-5 py-12 sm:min-h-[36rem] sm:py-16 lg:px-8">
           <div className="max-w-[82%] sm:max-w-xl">
             <p className="mb-3 text-[11px] font-bold uppercase text-primary sm:mb-4 sm:text-xs">
@@ -586,11 +615,20 @@ function Index() {
                 </>
               )}
             </p>
-            <Button asChild size="lg" className="mt-6 h-11 rounded-full px-5 text-sm sm:mt-7 sm:h-12 sm:px-6 sm:text-base">
-              <a href={settings.heroButtonLink || "#produtos"}>
-                {settings.heroButtonText || "Conheça nossos produtos"} <ArrowRight />
-              </a>
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button asChild size="lg" className="mt-6 h-11 rounded-full px-5 text-sm sm:mt-7 sm:h-12 sm:px-6 sm:text-base">
+                <a href={settings.heroButtonLink || "#produtos"}>
+                  {settings.heroButtonText || "Conheça nossos produtos"} <ArrowRight />
+                </a>
+              </Button>
+              {currentHeroProduct && (
+                <Button asChild variant="outline" size="lg" className="mt-6 rounded-full bg-background/80 px-5 text-sm backdrop-blur sm:mt-7">
+                  <Link to="/produto/$slug" params={{ slug: currentHeroProduct.slug }}>
+                    Ver {currentHeroProduct.name} <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              )}
+            </div>
             <div className="absolute inset-x-5 bottom-14 grid max-w-lg grid-cols-3 gap-2 border-t border-primary/15 pt-4 text-[0.65rem] font-semibold text-primary sm:static sm:mt-10 sm:gap-3 sm:pt-5 sm:text-xs">
               <span className="flex items-center gap-1.5 sm:gap-2">
                 <Leaf className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" /> {settings.heroBadge1 || "100% naturais"}
@@ -697,26 +735,32 @@ function Index() {
                     </span>
                   )}
                   {product.imageUrl ? (
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      className="aspect-[4/5] w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      referrerPolicy="no-referrer"
-                    />
+                    <Link to="/produto/$slug" params={{ slug: product.slug }} aria-label={`Ver ${product.name}`}>
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="aspect-[4/5] w-full cursor-pointer object-cover transition-transform duration-500 group-hover:scale-105"
+                        referrerPolicy="no-referrer"
+                      />
+                    </Link>
                   ) : (
-                    <div
-                      role="img"
-                      aria-label={`Pote de ${product.name}`}
-                      className="product-crop aspect-[4/5] w-full transition-transform duration-500 group-hover:scale-105"
-                      style={{
-                        backgroundImage: `url(${productsImage})`,
-                        backgroundPosition: product.imagePosition,
-                      }}
-                    />
+                    <Link to="/produto/$slug" params={{ slug: product.slug }} aria-label={`Ver ${product.name}`}>
+                      <div
+                        role="img"
+                        aria-label={`Pote de ${product.name}`}
+                        className="product-crop aspect-[4/5] w-full cursor-pointer transition-transform duration-500 group-hover:scale-105"
+                        style={{
+                          backgroundImage: `url(${productsImage})`,
+                          backgroundPosition: product.imagePosition,
+                        }}
+                      />
+                    </Link>
                   )}
                 </div>
                 <h3 className="mt-3 min-h-10 text-xs font-semibold leading-snug sm:text-sm">
-                  {product.name}
+                  <Link to="/produto/$slug" params={{ slug: product.slug }} className="hover:text-primary">
+                    {product.name}
+                  </Link>
                 </h3>
                 <p className="mt-2 text-xs text-muted-foreground line-through">
                   {formatPrice(product.oldPrice)}

@@ -3,13 +3,9 @@ import { useState, useEffect } from "react";
 import {
   ArrowRight,
   ChevronDown,
-  Copy,
-  Facebook,
   Heart,
   Leaf,
-  Link2,
   Maximize2,
-  Menu,
   Minus,
   PackageCheck,
   Plus,
@@ -38,6 +34,10 @@ import {
 import { useCart } from "@/data/cart";
 import { useStoreSettings } from "@/hooks/use-store-settings";
 import { ProductFavoriteButton } from "@/components/products/product-favorite-button";
+import { ProductShare } from "@/components/products/product-share-button";
+import {
+  ProductReviewsSection,
+} from "@/components/products/product-reviews-section";
 import { useFavorites } from "@/data/favorites";
 import { useCurrentUser } from "@/data/user-auth";
 import { toast } from "sonner";
@@ -276,6 +276,7 @@ function ProductPage() {
             </span>
           </div>
           <div className="relative overflow-hidden rounded-lg border border-border bg-card shadow-card flex items-center justify-center">
+            <ProductShare productName={product.name} variant="floating" />
             {isProductOutOfStock(product) ? (
               <span className="absolute right-3 top-3 z-10 rounded-full bg-gray-700 px-3 py-1 text-[0.7rem] font-bold text-white">
                 Esgotado
@@ -548,23 +549,13 @@ function ProductPage() {
                 </div>
               )}
 
-              {product.reviews > 0 && (
-                <div className="mt-8 border-t border-border pt-6">
-                  <h3 className="font-display text-lg font-bold text-foreground">
-                    Avaliações dos clientes
-                  </h3>
-                  <div className="mt-2 flex items-center gap-3">
-                    <Stars rating={product.rating} />
-                    <span className="text-sm text-muted-foreground">
-                      {product.rating.toLocaleString("pt-BR")} de 5 · {product.reviews} avaliações
-                    </span>
-                  </div>
-                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                    Clientes destacam a qualidade natural da fórmula, a entrega rápida e os
-                    resultados percebidos com o uso contínuo.
-                  </p>
-                </div>
-              )}
+              <ProductReviewsSection
+                productId={product.id}
+                productSlug={product.slug}
+                productName={product.name}
+                fallbackRating={product.rating}
+                fallbackCount={product.reviews}
+              />
             </div>
 
             <aside className="min-w-0 rounded-lg border border-border">
@@ -601,15 +592,8 @@ function ProductPage() {
                     </span>
                     Compartilhar
                   </dt>
-                  <dd className="flex gap-2">
-                    {[Copy, Facebook, Link2].map((Icon, index) => (
-                      <span
-                        key={index}
-                        className="grid h-8 w-8 place-items-center rounded-full border border-border text-primary"
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                      </span>
-                    ))}
+                  <dd>
+                    <ProductShare productName={product.name} variant="inline" />
                   </dd>
                 </div>
               </dl>
@@ -632,27 +616,31 @@ function ProductPage() {
                 <span className="absolute right-1.5 top-1.5 z-10 rounded-full bg-primary px-2 py-1 text-[0.62rem] font-bold text-primary-foreground">
                   {item.discount}% OFF
                 </span>
+                <Link to="/produto/$slug" params={{ slug: item.slug }} aria-label={`Ver ${item.name}`}>
                 {item.imageUrl ? (
                   <img
                     src={item.imageUrl}
                     alt={item.name}
-                    className="aspect-[4/5] w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="aspect-[4/5] w-full cursor-pointer object-cover transition-transform duration-500 group-hover:scale-105"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
                   <div
                     role="img"
                     aria-label={`Pote de ${item.name}`}
-                    className="product-crop aspect-[4/5] w-full transition-transform duration-500 group-hover:scale-105"
+                    className="product-crop aspect-[4/5] w-full cursor-pointer transition-transform duration-500 group-hover:scale-105"
                     style={{
                       backgroundImage: `url(${productsImage})`,
                       backgroundPosition: item.imagePosition,
                     }}
                   />
                 )}
+                </Link>
               </div>
               <h3 className="mt-3 min-h-10 text-xs font-semibold leading-snug sm:text-sm">
-                {item.name}
+                <Link to="/produto/$slug" params={{ slug: item.slug }} className="hover:text-primary">
+                  {item.name}
+                </Link>
               </h3>
               <p className="mt-2 text-xs text-muted-foreground line-through">
                 {formatPrice(item.oldPrice)}

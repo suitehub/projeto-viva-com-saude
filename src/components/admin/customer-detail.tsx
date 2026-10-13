@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ArrowLeft,
   Calendar,
@@ -19,6 +19,11 @@ import {
   X,
 } from "lucide-react";
 import { AdminCustomerItem } from "@/data/admin-customers-data";
+import {
+  SaleOrder,
+  getCachedOrders,
+  subscribeAdminOrders,
+} from "@/data/admin-orders-data";
 
 interface CustomerDetailProps {
   customer: AdminCustomerItem;
@@ -37,6 +42,19 @@ export function CustomerDetail({ customer, onBack, onSave, onDelete }: CustomerD
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  // Último pedido do cliente (método de pagamento real)
+  const [lastOrder, setLastOrder] = useState<SaleOrder | null>(null);
+
+  useEffect(() => {
+    const email = customer.email.trim().toLowerCase();
+    const pickLatest = (orders: SaleOrder[]) => {
+      const mine = orders.filter((o) => (o.email || "").trim().toLowerCase() === email);
+      setLastOrder(mine.length ? mine[mine.length - 1] : null);
+    };
+    pickLatest(getCachedOrders());
+    const unsubscribe = subscribeAdminOrders(pickLatest);
+    return () => unsubscribe();
+  }, [customer.email]);
 
   const handleSaveNotes = () => {
     const updated = { ...data, notes: notesInput };
@@ -155,17 +173,33 @@ export function CustomerDetail({ customer, onBack, onSave, onDelete }: CustomerD
                     </div>
                   </div>
 
-                  {/* Badges: Recebido & Enviada */}
+                  {/* Badges: status reais do último pedido */}
                   <div className="mt-3.5 flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200">
-                      <span className="font-bold">$</span> Recebido
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border ${
+                        lastOrder?.paymentStatus === "Recebido"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : lastOrder?.paymentStatus === "Pendente"
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : "bg-gray-100 text-gray-600 border-gray-200"
+                      }`}
+                    >
+                      <span className="font-bold">$</span>{" "}
+                      {lastOrder?.paymentStatus || "Sem pagamento"}
                     </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-[#0066d6] border border-blue-200">
-                      <Truck className="h-3 w-3" /> Enviada
-                    </span>
+                    {lastOrder && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-[#0066d6] border border-blue-200">
+                        <Truck className="h-3 w-3" />{" "}
+                        {lastOrder.shippingStatus === "Enviada" ? "Enviada" : "A enviar"}
+                      </span>
+                    )}
                   </div>
 
-                  <p className="mt-2 text-xs text-gray-500">Mercado Pago - Cartão de crédito</p>
+                  <p className="mt-2 text-xs text-gray-500">
+                    {lastOrder?.paymentMethod
+                      ? `Mercado Pago - ${lastOrder.paymentMethod}`
+                      : "Mercado Pago"}
+                  </p>
                 </div>
               ) : (
                 <div className="py-8 text-center text-xs text-gray-500">
