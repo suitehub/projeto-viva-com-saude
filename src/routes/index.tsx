@@ -108,7 +108,7 @@ const HERO_SLIDES = [
   { src: heroMacaPeruana, alt: "Maca Peruana sobre pedestal de pedra", productKey: "maca peruana" },
   { src: heroFiocaps, alt: "Fiocaps sobre pedestal de pedra", productKey: "fiocaps" },
   { src: heroRilexMax, alt: "Rilex Max sobre pedestal de pedra", productKey: "rilex" },
-  { src: heroColagenoTipo2, alt: "Colágeno Tipo 2 sobre pedestal de pedra", productKey: "colageno" },
+  { src: heroColagenoTipo2, alt: "Colágeno Tipo 2 sobre pedestal de pedra", productKey: "colageno tipo 2" },
 ];
 
 const HERO_SLIDE_MS = 5000;
