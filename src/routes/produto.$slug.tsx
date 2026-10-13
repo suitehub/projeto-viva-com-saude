@@ -42,6 +42,8 @@ import { useFavorites } from "@/data/favorites";
 import { useCurrentUser } from "@/data/user-auth";
 import { toast } from "sonner";
 
+const SITE_URL = "https://www.projetovivacomsaude.com.br";
+
 export const Route = createFileRoute("/produto/$slug")({
   ssr: false,
   loader: async ({ params }) => {
@@ -63,6 +65,11 @@ export const Route = createFileRoute("/produto/$slug")({
     }
     const { product } = loaderData;
     const title = `${product.name} | Projeto Viva com Saúde`;
+    // URL canônica + imagem absoluta: é o que WhatsApp/Telegram usam
+    // para montar o cartão com foto, nome e descrição.
+    const pageUrl = `${SITE_URL}/produto/${product.slug}`;
+    const rawImage = product.images?.[0] || product.imageUrl || "";
+    const image = rawImage.startsWith("http") ? rawImage : `${SITE_URL}/hero.png`;
     return {
       meta: [
         { title },
@@ -70,7 +77,12 @@ export const Route = createFileRoute("/produto/$slug")({
         { property: "og:title", content: title },
         { property: "og:description", content: product.shortDescription },
         { property: "og:type", content: "product" },
+        { property: "og:url", content: pageUrl },
+        { property: "og:image", content: image },
         { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: product.shortDescription },
+        { name: "twitter:image", content: image },
       ],
     };
   },
@@ -276,7 +288,12 @@ function ProductPage() {
             </span>
           </div>
           <div className="relative overflow-hidden rounded-lg border border-border bg-card shadow-card flex items-center justify-center">
-            <ProductShare productName={product.name} variant="floating" />
+            <ProductShare
+              productName={product.name}
+              variant="floating"
+              description={product.shortDescription}
+              imageUrl={activeCustomImage || undefined}
+            />
             {isProductOutOfStock(product) ? (
               <span className="absolute right-3 top-3 z-10 rounded-full bg-gray-700 px-3 py-1 text-[0.7rem] font-bold text-white">
                 Esgotado
@@ -593,7 +610,14 @@ function ProductPage() {
                     Compartilhar
                   </dt>
                   <dd>
-                    <ProductShare productName={product.name} variant="inline" />
+                    <ProductShare
+                      productName={product.name}
+                      variant="inline"
+                      description={product.shortDescription}
+                      imageUrl={
+                        product.images?.[0] || product.imageUrl || activeCustomImage || undefined
+                      }
+                    />
                   </dd>
                 </div>
               </dl>

@@ -109,6 +109,144 @@ if (serverModule && serverModule.default && typeof serverModule.default.fetch ==
   }
 }
 
+// 5b. Pré-renderiza /produto/{slug} com Open Graph (foto + nome + descrição).
+// WhatsApp/Telegram NÃO executam JavaScript: cada produto precisa de um HTML
+// estático próprio com og:title/og:description/og:image, senão o link sai sem cartão.
+const SITE_URL = (() => {
+  try {
+    const cname = fs.readFileSync(path.join(rootDir, "public", "CNAME"), "utf8").trim();
+    if (cname) return `https://${cname}`;
+  } catch {
+    // sem CNAME
+  }
+  return "https://www.projetovivacomsaude.com.br";
+})();
+
+const escapeAttr = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+const slugifyExport = (text) =>
+  (text || "")
+    .toString()
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+async function fetchStoreProductsForPrerender() {
+  try {
+    const cfg = JSON.parse(
+      fs.readFileSync(path.join(rootDir, "firebase-applet-config.json"), "utf8"),
+    );
+    const apiUrl =
+      `https://firestore.googleapis.com/v1/projects/${cfg.projectId}` +
+      `/databases/${cfg.firestoreDatabaseId}/documents/products?pageSize=300&key=${cfg.apiKey}`;
+    const res = await fetch(apiUrl);
+    if (!res.ok) throw new Error(`Firestore REST ${res.status}`);
+    const json = await res.json();
+    const seen = new Set();
+    const list = [];
+    for (const d of json.documents || []) {
+      const id = String(d.name || "").split("/").pop();
+      const f = d.fields || {};
+      if (f.visibility?.stringValue === "Oculto") continue;
+      if (f.displayInStore?.booleanValue === false) continue;
+      const name = f.name?.stringValue || "Produto";
+      const slug = slugifyExport(f.urlSlug?.stringValue || name) || id;
+      if (!slug || seen.has(slug)) continue;
+      seen.add(slug);
+      const imgValues = f.images?.arrayValue?.values || [];
+      const imageUrl =
+        imgValues.map((v) => v.stringValue).find(Boolean) || f.imageUrl?.stringValue || "";
+      const firstPara = String(f.description?.stringValue || "")
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean)[0];
+      const short = (firstPara || f.seoDescription?.stringValue || name).slice(0, 160);
+      list.push({ id, slug, name, short, imageUrl });
+    }
+    return list;
+  } catch (err) {
+    console.warn("  ⚠️ Não foi possível listar produtos p/ pré-render:", err.message);
+    return [];
+  }
+}
+
+if (serverModule && serverModule.default && typeof serverModule.default.fetch === "function") {
+  const productsForSeo = await fetchStoreProductsForPrerender();
+  console.log(`🛍️ Pré-renderizando ${productsForSeo.length} páginas de produto (Open Graph)...`);
+  for (const p of productsForSeo) {
+    try {
+      const requestPath = `${urlPrefix}/produto/${p.slug}`;
+      let res = await serverModule.default.fetch(new Request(`http://localhost${requestPath}`), {});
+      if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
+        const redirectLoc = res.headers.get("location");
+        res = await serverModule.default.fetch(
+          new Request(new URL(redirectLoc, "http://localhost").href),
+          {},
+        );
+      }
+      if (res.status !== 200) {
+        console.warn(`  ⚠️ Produto ${p.slug} retornou status ${res.status}`);
+        continue;
+      }
+      let html = await res.text();
+      const title = `${p.name} | Projeto Viva com Saúde`;
+      const pageUrl = `${SITE_URL}/produto/${p.slug}`;
+      const image =
+        p.imageUrl && p.imageUrl.startsWith("http") ? p.imageUrl : `${SITE_URL}/hero.png`;
+      html = html.replace(/<title>.*?<\/title>/, `<title>${escapeAttr(title)}</title>`);
+      const ogTags = [
+        `<meta property="og:title" content="${escapeAttr(title)}" />`,
+        `<meta property="og:description" content="${escapeAttr(p.short)}" />`,
+        `<meta property="og:type" content="product" />`,
+        `<meta property="og:url" content="${escapeAttr(pageUrl)}" />`,
+        `<meta property="og:image" content="${escapeAttr(image)}" />`,
+        `<meta name="twitter:card" content="summary_large_image" />`,
+        `<meta name="twitter:title" content="${escapeAttr(title)}" />`,
+        `<meta name="twitter:description" content="${escapeAttr(p.short)}" />`,
+        `<meta name="twitter:image" content="${escapeAttr(image)}" />`,
+      ].join("\n    ");
+      if (!html.includes("l.search[1] === '/'") && html.includes("</head>")) {
+        html = html.replace("</head>", `${spaDecodeScript}\n    ${ogTags}\n  </head>`);
+      } else if (html.includes("</head>")) {
+        html = html.replace("</head>", `    ${ogTags}\n  </head>`);
+      }
+      const outDir = path.join(distDir, "produto", p.slug);
+      fs.mkdirSync(outDir, { recursive: true });
+      fs.writeFileSync(path.join(outDir, "index.html"), html, "utf8");
+      console.log(`  ✓ Produto /produto/${p.slug}`);
+    } catch (err) {
+      console.warn(`  ⚠️ Erro ao renderizar produto ${p.slug}:`, err.message);
+    }
+  }
+
+  // Garante og:image na home (prévia ao compartilhar o link da loja).
+  try {
+    const homePath = path.join(distDir, "index.html");
+    if (fs.existsSync(homePath)) {
+      let homeHtml = fs.readFileSync(homePath, "utf8");
+      if (!homeHtml.includes("og:image")) {
+        homeHtml = homeHtml.replace(
+          "</head>",
+          `    <meta property="og:image" content="${SITE_URL}/hero.png" />\n    <meta property="og:url" content="${SITE_URL}/" />\n  </head>`,
+        );
+        fs.writeFileSync(homePath, homeHtml, "utf8");
+        console.log("  ✓ og:image adicionado à home");
+      }
+    }
+  } catch (err) {
+    console.warn("  ⚠️ Erro ao ajustar OG da home:", err.message);
+  }
+}
+
 // Se não gerou index.html por algum motivo, gera fallback completo com os assets JS e CSS
 if (!fs.existsSync(path.join(distDir, "index.html"))) {
   console.log("ℹ️ Gerando index.html fallback completo com scripts e estilos...");
