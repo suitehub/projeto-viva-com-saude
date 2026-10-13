@@ -33,11 +33,14 @@ jobs:
       - name: Instalar dependências
         run: npm ci || npm install
 
-      - name: Build para GitHub Pages
+      - name: Build para GitHub Pages (domínio próprio serve da raiz)
         run: npm run build:gh-pages
         env:
           NODE_ENV: production
-          BASE_URL: ${{ github.event.repository.name && !endsWith(github.repository, '.github.io') && format('/{0}/', github.event.repository.name) || '/' }}
+          # Site usa domínio próprio (www.projetovivacomsaude.com.br) servindo da raiz,
+          # então a base PRECISA ser "/". O valor antigo com /nome-do-repo/ quebrava
+          # os assets (/nome-do-repo/assets/...) e dava tela branca no domínio.
+          BASE_URL: /
 
       - name: Publicar na branch gh-pages
         uses: peaceiris/actions-gh-pages@v4

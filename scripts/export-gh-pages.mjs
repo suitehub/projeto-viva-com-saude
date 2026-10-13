@@ -10,9 +10,12 @@ const serverEntry = path.join(rootDir, ".output", "server", "index.mjs");
 console.log("🚀 Iniciando build e exportação para GitHub Pages...");
 
 // 1. Determina a base URL correta para o GitHub Pages
+// Domínio próprio (public/CNAME existe) sempre serve da raiz: base "/".
 let targetBaseUrl = process.env.BASE_URL;
 if (!targetBaseUrl) {
-  if (process.env.GITHUB_REPOSITORY) {
+  if (fs.existsSync(path.join(rootDir, "public", "CNAME"))) {
+    targetBaseUrl = "/";
+  } else if (process.env.GITHUB_REPOSITORY) {
     const repoParts = process.env.GITHUB_REPOSITORY.split("/");
     const repoName = repoParts[1] || "";
     targetBaseUrl = repoName.endsWith(".github.io") ? "/" : `/${repoName}/`;
