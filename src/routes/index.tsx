@@ -102,13 +102,14 @@ const benefits = [
 ];
 
 // Carrossel da hero: 5 fotos de produtos em fade (5s cada), nesta ordem.
-// productKey serve para ligar o banner ao produto (clique vai à página do produto).
+// `slug` (quando definido) é o link exato da página do produto — preferido.
+// Sem slug, usa-se o productKey para achar o produto pelo nome no catálogo.
 const HERO_SLIDES = [
   { src: heroMounjaro, alt: "Mounjaro 100% Natural sobre pedestal de pedra", productKey: "mounjaro" },
   { src: heroMacaPeruana, alt: "Maca Peruana sobre pedestal de pedra", productKey: "maca peruana" },
   { src: heroFiocaps, alt: "Fiocaps sobre pedestal de pedra", productKey: "fiocaps" },
   { src: heroRilexMax, alt: "Rilex Max sobre pedestal de pedra", productKey: "rilex" },
-  { src: heroColagenoTipo2, alt: "Colágeno Tipo 2 sobre pedestal de pedra", productKey: "colageno tipo 2" },
+  { src: heroColagenoTipo2, alt: "Colágeno Tipo 2 sobre pedestal de pedra", productKey: "colageno tipo 2", slug: "colageno-tipo-ii" },
 ];
 
 const HERO_SLIDE_MS = 5000;
@@ -180,17 +181,33 @@ function Index() {
   };
 
   // Liga cada banner da hero ao produto correspondente (clique vai à página do produto).
+  // Se o slide tem `slug` exato, ele vale ouro: link direto, sem depender do catálogo.
   const heroProductByKey = useMemo(() => {
     const map: Record<string, (typeof storeProducts)[number] | undefined> = {};
     for (const slide of HERO_SLIDES) {
-      const key = normalizeSearchText(slide.productKey);
-      map[slide.productKey] = storeProducts.find((p) =>
-        normalizeSearchText(`${p.name} ${p.category} ${p.slug}`).includes(key),
-      );
+      if ("slug" in slide && slide.slug) {
+        map[slide.productKey] =
+          storeProducts.find((p) => p.slug === (slide as { slug: string }).slug) ??
+          storeProducts.find((p) =>
+            normalizeSearchText(`${p.name} ${p.category} ${p.slug}`).includes(
+              normalizeSearchText(slide.productKey),
+            ),
+          );
+      } else {
+        const key = normalizeSearchText(slide.productKey);
+        map[slide.productKey] = storeProducts.find((p) =>
+          normalizeSearchText(`${p.name} ${p.category} ${p.slug}`).includes(key),
+        );
+      }
     }
     return map;
   }, [storeProducts]);
-  const currentHeroProduct = heroProductByKey[HERO_SLIDES[heroIndex]?.productKey];
+  const currentSlide = HERO_SLIDES[heroIndex];
+  const currentHeroProduct = currentSlide ? heroProductByKey[currentSlide.productKey] : undefined;
+  // Slug de destino: o exato do slide quando houver, senão o do produto achado no catálogo.
+  const currentHeroSlug =
+    (currentSlide && "slug" in currentSlide && (currentSlide as { slug?: string }).slug) ||
+    currentHeroProduct?.slug;
 
   const featuredProducts = useMemo(() => {
     const isFiltering = query.trim() !== "" || category !== "Todas";
@@ -565,36 +582,34 @@ function Index() {
       </header>
 
       <section className="relative min-h-[36rem] overflow-hidden sm:min-h-[36rem]">
-        {HERO_SLIDES.map((slide, index) => {
-          const linked = heroProductByKey[slide.productKey];
-          const img = (
-            <img
-              key={slide.src}
-              src={slide.src}
-              alt={slide.alt}
-              width={1536}
-              height={864}
-              loading={index === 0 ? "eager" : "lazy"}
-              aria-hidden={index === heroIndex ? undefined : true}
-              className={`absolute inset-0 h-full w-full object-cover object-[62%_center] transition-opacity duration-1000 sm:object-center ${
-                index === heroIndex ? "opacity-100" : "opacity-0"
-              } ${linked ? "cursor-pointer" : ""}`}
-            />
-          );
-          if (!linked || index !== heroIndex) return img;
-          return (
-            <Link
-              key={slide.src}
-              to="/produto/$slug"
-              params={{ slug: linked.slug }}
-              aria-label={`Ver produto ${linked.name}`}
-              className="absolute inset-0"
-            >
-              {img}
-            </Link>
-          );
-        })}
+        {HERO_SLIDES.map((slide, index) => (
+          <img
+            key={slide.src}
+            src={slide.src}
+            alt={slide.alt}
+            width={1536}
+            height={864}
+            loading={index === 0 ? "eager" : "lazy"}
+            aria-hidden={true}
+            draggable={false}
+            className={`pointer-events-none absolute inset-0 h-full w-full object-cover object-[62%_center] transition-opacity duration-1000 sm:object-center ${
+              index === heroIndex ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        ))}
         <div className="pointer-events-none absolute inset-0 bg-hero-overlay" />
+        {/* Metade direita da imagem clicável: vai direto à página do produto.
+            O degradê e os textos continuam intactos à esquerda. */}
+        {currentHeroSlug && (
+          <Link
+            to="/produto/$slug"
+            params={{ slug: currentHeroSlug }}
+            aria-label={`Ver produto ${currentHeroProduct?.name ?? currentSlide?.alt ?? ""}`}
+            className="absolute inset-y-0 right-0 z-[1] w-1/2 cursor-pointer sm:w-[55%]"
+          >
+            <span className="sr-only">Ver produto</span>
+          </Link>
+        )}
         <div className="pointer-events-none relative z-10 mx-auto flex min-h-[36rem] max-w-7xl items-center px-5 py-12 sm:min-h-[36rem] sm:py-16 lg:px-8">
           <div className="max-w-[82%] sm:max-w-xl">
             <p className="mb-3 text-[11px] font-bold uppercase text-primary sm:mb-4 sm:text-xs">
@@ -621,10 +636,10 @@ function Index() {
                   {settings.heroButtonText || "Conheça nossos produtos"} <ArrowRight />
                 </a>
               </Button>
-              {currentHeroProduct && (
+              {currentHeroSlug && (
                 <Button asChild variant="outline" size="lg" className="mt-6 rounded-full bg-background/80 px-5 text-sm backdrop-blur sm:mt-7">
-                  <Link to="/produto/$slug" params={{ slug: currentHeroProduct.slug }}>
-                    Ver {currentHeroProduct.name} <ArrowRight className="h-4 w-4" />
+                  <Link to="/produto/$slug" params={{ slug: currentHeroSlug }}>
+                    Ver {currentHeroProduct?.name ?? "produto"} <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
               )}
