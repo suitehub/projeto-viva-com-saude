@@ -145,15 +145,25 @@ async function fetchStoreProductsForPrerender() {
     const cfg = JSON.parse(
       fs.readFileSync(path.join(rootDir, "firebase-applet-config.json"), "utf8"),
     );
+    // runQuery (POST) em vez do list (GET): mesma permissão, mas o GET é
+    // recusado neste projeto e o POST libera normalmente.
     const apiUrl =
       `https://firestore.googleapis.com/v1/projects/${cfg.projectId}` +
-      `/databases/${cfg.firestoreDatabaseId}/documents/products?pageSize=300&key=${cfg.apiKey}`;
-    const res = await fetch(apiUrl);
-    if (!res.ok) throw new Error(`Firestore REST ${res.status}`);
+      `/databases/${cfg.firestoreDatabaseId}/documents:runQuery?key=${cfg.apiKey}`;
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        structuredQuery: { from: [{ collectionId: "products" }], limit: 300 },
+      }),
+    });
+    if (!res.ok) throw new Error(`Firestore runQuery ${res.status}`);
     const json = await res.json();
     const seen = new Set();
     const list = [];
-    for (const d of json.documents || []) {
+    for (const row of Array.isArray(json) ? json : []) {
+      const d = row.document;
+      if (!d) continue;
       const id = String(d.name || "").split("/").pop();
       const f = d.fields || {};
       if (f.visibility?.stringValue === "Oculto") continue;
