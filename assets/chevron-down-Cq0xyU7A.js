@@ -1,0 +1,1 @@
+import{St as e}from"./all-store-products-Dn8B0pC5.js";var t=e(`chevron-down`,[[`path`,{d:`m6 9 6 6 6-6`,key:`qrunsl`}]]);export{t};
