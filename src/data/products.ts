@@ -25,6 +25,10 @@ export type Product = {
   stock?: string | number;
   featured?: boolean;
   featuredAt?: string;
+  /** Ordem manual definida no admin (arrastar). Menor aparece antes. */
+  sortOrder?: number;
+  /** Data de cadastro — desempate da ordem (postagem). */
+  createdAt?: string;
   weightKg?: number;
   heightCm?: number;
   widthCm?: number;

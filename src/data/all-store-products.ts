@@ -150,6 +150,8 @@ export function convertAdminProductToStoreProduct(item: AdminProductItem, index:
     stock: item.stock,
     featured: item.featured === true,
     featuredAt: item.featuredAt,
+    sortOrder: item.sortOrder,
+    createdAt: item.createdAt,
     weightKg: item.weightKg,
     heightCm: item.heightCm,
     widthCm: item.widthCm,
@@ -157,6 +159,20 @@ export function convertAdminProductToStoreProduct(item: AdminProductItem, index:
     freeShipping: item.freeShipping,
     brand: item.brand,
   };
+}
+
+/**
+ * Ordem da vitrine: primeiro a ordem manual do admin (arrastar),
+ * depois os sem posição pela data de postagem (mais novos antes).
+ * Vale para catálogo, categorias, destaques e relacionados.
+ */
+export function sortStoreProducts(list: Product[]): Product[] {
+  return [...list].sort((a, b) => {
+    const ao = typeof a.sortOrder === "number" ? a.sortOrder : Number.MAX_SAFE_INTEGER;
+    const bo = typeof b.sortOrder === "number" ? b.sortOrder : Number.MAX_SAFE_INTEGER;
+    if (ao !== bo) return ao - bo;
+    return (b.createdAt || "").localeCompare(a.createdAt || "");
+  });
 }
 
 export function initStoreProductsSubscription(): () => void {
@@ -185,8 +201,8 @@ export function initStoreProductsSubscription(): () => void {
         const visible = loaded.filter(
           (p) => p.displayInStore !== false && p.visibility !== "Oculto",
         );
-        cachedStoreProducts = visible.map((item, idx) =>
-          convertAdminProductToStoreProduct(item, idx),
+        cachedStoreProducts = sortStoreProducts(
+          visible.map((item, idx) => convertAdminProductToStoreProduct(item, idx)),
         );
         window.dispatchEvent(new Event("viva_admin_products_updated"));
       },
@@ -225,8 +241,8 @@ export function getAllStoreProducts(): Product[] {
           const converted = visible.map((item, idx) =>
             convertAdminProductToStoreProduct(item, idx),
           );
-          cachedStoreProducts = converted;
-          return converted;
+          cachedStoreProducts = sortStoreProducts(converted);
+          return cachedStoreProducts;
         }
       }
     } catch {
@@ -239,10 +255,12 @@ export function getAllStoreProducts(): Product[] {
     const visible = INITIAL_ADMIN_PRODUCTS.filter(
       (p) => p.displayInStore !== false && p.visibility !== "Oculto",
     );
-    return visible.map((item, idx) => convertAdminProductToStoreProduct(item, idx));
+    return sortStoreProducts(
+      visible.map((item, idx) => convertAdminProductToStoreProduct(item, idx)),
+    );
   }
 
-  return initialStaticProducts;
+  return sortStoreProducts(initialStaticProducts);
 }
 
 /**
@@ -293,8 +311,8 @@ export async function fetchStoreProductBySlugFromFirestore(
     if (loaded.length > 0) {
       cacheAdminProducts(loaded);
       const visible = loaded.filter((p) => p.displayInStore !== false && p.visibility !== "Oculto");
-      cachedStoreProducts = visible.map((item, idx) =>
-        convertAdminProductToStoreProduct(item, idx),
+      cachedStoreProducts = sortStoreProducts(
+        visible.map((item, idx) => convertAdminProductToStoreProduct(item, idx)),
       );
       return findStoreProductBySlug(slug);
     }

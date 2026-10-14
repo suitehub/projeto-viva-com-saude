@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FileSpreadsheet,
   Filter,
+  GripVertical,
   Layers,
   Plus,
   Search,
@@ -21,6 +22,7 @@ import {
   getCachedAdminProducts,
   subscribeAdminProducts,
   saveAdminProductToFirestore,
+  saveProductDisplayOrder,
   deleteAdminProductFromFirestore,
   saveAllAdminProductsToFirestore,
 } from "@/data/admin-products-data";
@@ -43,9 +45,14 @@ export function ProductsList() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOption, setSortOption] = useState<
-    "mais-novo" | "nome" | "menor-preco" | "maior-preco"
-  >("mais-novo");
+    "manual" | "mais-novo" | "nome" | "menor-preco" | "maior-preco"
+  >("manual");
   const [editingProduct, setEditingProduct] = useState<AdminProductItem | null>(null);
+
+  // Arrastar para reordenar a vitrine (só na visão "Minha ordem" sem filtros)
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [dropAt, setDropAt] = useState<number | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   // Modals
   const [showExportImportModal, setShowExportImportModal] = useState(false);
@@ -282,8 +289,42 @@ export function ProductsList() {
     if (sortOption === "nome") return a.name.localeCompare(b.name);
     if (sortOption === "menor-preco") return a.promotionalPrice - b.promotionalPrice;
     if (sortOption === "maior-preco") return b.promotionalPrice - a.promotionalPrice;
-    return 0; // "mais-novo" default
+    if (sortOption === "mais-novo") return (b.createdAt || "").localeCompare(a.createdAt || "");
+    // "manual": ordem arrastada; sem posição vai para o fim (mais novos antes)
+    const ao = typeof a.sortOrder === "number" ? a.sortOrder : Number.MAX_SAFE_INTEGER;
+    const bo = typeof b.sortOrder === "number" ? b.sortOrder : Number.MAX_SAFE_INTEGER;
+    if (ao !== bo) return ao - bo;
+    return (b.createdAt || "").localeCompare(a.createdAt || "");
   });
+
+  const canReorder =
+    sortOption === "manual" && searchQuery.trim() === "" && filterCategory === "todas";
+
+  // Solta o arrastado na posição indicada e persiste a ordem no Firestore
+  const handleDropAt = (targetIndex: number) => {
+    if (dragFrom === null || dragFrom === targetIndex || savingOrder) return;
+    const reordered = [...sortedProducts];
+    const [moved] = reordered.splice(dragFrom, 1);
+    reordered.splice(targetIndex, 0, moved);
+    const newIds = reordered.map((p) => p.id);
+    const previous = products;
+    const byId = new Map(products.map((p) => [p.id, p]));
+    const next = newIds
+      .map((id) => byId.get(id))
+      .filter((p): p is AdminProductItem => p !== undefined);
+    setProducts(next);
+    setDragFrom(null);
+    setDropAt(null);
+    setSavingOrder(true);
+    saveProductDisplayOrder(newIds)
+      .then(() => toast.success("Ordem da vitrine atualizada!"))
+      .catch((err) => {
+        console.error("Erro ao salvar ordem no Firestore:", err);
+        setProducts(previous);
+        toast.error(mapAdminWriteError(err, "a ordem da vitrine"));
+      })
+      .finally(() => setSavingOrder(false));
+  };
 
   const bgPositions = ["0%", "20%", "40%", "60%", "80%", "100%"];
 
@@ -342,16 +383,18 @@ export function ProductsList() {
               onClick={() => {
                 const cycleMap: Record<
                   string,
-                  "mais-novo" | "nome" | "menor-preco" | "maior-preco"
+                  "manual" | "mais-novo" | "nome" | "menor-preco" | "maior-preco"
                 > = {
+                  manual: "mais-novo",
                   "mais-novo": "nome",
                   nome: "menor-preco",
                   "menor-preco": "maior-preco",
-                  "maior-preco": "mais-novo",
+                  "maior-preco": "manual",
                 };
-                const next = cycleMap[sortOption] || "mais-novo";
+                const next = cycleMap[sortOption] || "manual";
                 setSortOption(next);
                 const labels = {
+                  manual: "Minha ordem (arrastar)",
                   "mais-novo": "Mais novo",
                   nome: "Nome (A - Z)",
                   "menor-preco": "Menor preço",
@@ -421,11 +464,17 @@ export function ProductsList() {
                 value={sortOption}
                 onChange={(e) =>
                   setSortOption(
-                    e.target.value as "mais-novo" | "nome" | "menor-preco" | "maior-preco",
+                    e.target.value as
+                      | "manual"
+                      | "mais-novo"
+                      | "nome"
+                      | "menor-preco"
+                      | "maior-preco",
                   )
                 }
                 className="bg-transparent text-xs font-semibold text-gray-700 focus:outline-hidden cursor-pointer"
               >
+                <option value="manual">Minha ordem</option>
                 <option value="mais-novo">Mais novo</option>
                 <option value="nome">Nome (A - Z)</option>
                 <option value="menor-preco">Menor preço</option>
@@ -436,8 +485,21 @@ export function ProductsList() {
         </div>
 
         {/* Counter and Bulk Action */}
-        <div className="flex items-center justify-between py-2 text-xs text-gray-500 font-medium">
-          <span>{sortedProducts.length} produtos</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs text-gray-500 font-medium">
+          <span>
+            {sortedProducts.length} produtos
+            {sortOption === "manual" && canReorder && (
+              <span className="ml-2 text-[#0066d6]">
+                Arraste pela alça ⋮⋮ para mudar a ordem da vitrine
+              </span>
+            )}
+            {sortOption === "manual" && !canReorder && (
+              <span className="ml-2 text-amber-600">
+                Para arrastar, limpe a busca e os filtros de categoria
+              </span>
+            )}
+            {savingOrder && <span className="ml-2 text-gray-400">Salvando ordem...</span>}
+          </span>
           {selectedIds.length > 0 && (
             <div className="flex items-center gap-3">
               <span className="font-semibold text-gray-700">
@@ -461,6 +523,9 @@ export function ProductsList() {
             <table className="w-full text-left text-xs text-gray-600 border-collapse">
               <thead className="border-b border-gray-200 bg-gray-50/70 text-[11px] font-bold uppercase tracking-wider text-gray-500">
                 <tr>
+                  <th className="w-8 px-2 py-3 text-center" title="Arrastar para reordenar">
+                    <GripVertical className="mx-auto h-3.5 w-3.5 text-gray-300" />
+                  </th>
                   <th className="w-10 px-4 py-3 text-center">
                     <input
                       type="checkbox"
@@ -479,17 +544,62 @@ export function ProductsList() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {sortedProducts.map((prod) => {
+                {sortedProducts.map((prod, rowIndex) => {
                   const isSelected = selectedIds.includes(prod.id);
                   const imgBg = bgPositions[prod.imagePositionIndex % bgPositions.length];
+                  const isDragging = dragFrom === rowIndex;
+                  const isDropTarget = dropAt === rowIndex && dragFrom !== null;
 
                   return (
                     <tr
                       key={prod.id}
-                      className={`hover:bg-blue-50/30 transition-colors ${
+                      onDragOver={(e) => {
+                        if (!canReorder || dragFrom === null) return;
+                        e.preventDefault();
+                        setDropAt(rowIndex);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleDropAt(rowIndex);
+                      }}
+                      className={`transition-colors hover:bg-blue-50/30 ${
                         isSelected ? "bg-blue-50/50" : ""
+                      } ${isDragging ? "opacity-40" : ""} ${
+                        isDropTarget ? "bg-blue-100/60 shadow-[inset_0_2px_0_#0066d6]" : ""
                       }`}
                     >
+                      {/* Alça de arrastar */}
+                      <td className="px-2 py-3.5 text-center">
+                        <span
+                          draggable={canReorder && !savingOrder}
+                          onDragStart={(e) => {
+                            if (!canReorder) return;
+                            e.dataTransfer.effectAllowed = "move";
+                            try {
+                              e.dataTransfer.setData("text/plain", prod.id);
+                            } catch {
+                              // ignore
+                            }
+                            setDragFrom(rowIndex);
+                          }}
+                          onDragEnd={() => {
+                            setDragFrom(null);
+                            setDropAt(null);
+                          }}
+                          title={
+                            canReorder
+                              ? "Arrastar para mudar a posição na vitrine"
+                              : "Reordenação disponível em “Minha ordem” sem filtros"
+                          }
+                          className={`inline-grid h-8 w-6 place-items-center rounded text-gray-400 ${
+                            canReorder
+                              ? "cursor-grab active:cursor-grabbing hover:bg-gray-100 hover:text-gray-700"
+                              : "cursor-not-allowed opacity-40"
+                          }`}
+                        >
+                          <GripVertical className="h-4 w-4" />
+                        </span>
+                      </td>
                       {/* Checkbox */}
                       <td className="px-4 py-3.5 text-center">
                         <input

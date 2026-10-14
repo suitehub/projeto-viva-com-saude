@@ -48,6 +48,8 @@ export interface AdminProductItem {
   featured?: boolean;
   featuredAt?: string;
   imagePositionIndex: number;
+  /** Ordem manual da vitrine (arrastar no admin). Menor aparece antes. */
+  sortOrder?: number;
   imageUrl?: string;
   images?: string[];
   benefits?: string;
@@ -231,6 +233,18 @@ export function subscribeAdminProducts(
  */
 export async function saveAdminProductToFirestore(product: AdminProductItem): Promise<void> {
   const sanitized = sanitizeProductForFirestore(product);
+  // Produto novo sem posição manual vai para o fim da vitrine (não bagunça a ordem arrastada)
+  if (sanitized.sortOrder == null) {
+    const cached = getCachedAdminProducts();
+    const isNew = !cached.some((p) => p.id === sanitized.id);
+    if (isNew) {
+      const maxOrder = cached.reduce(
+        (max, p) => (typeof p.sortOrder === "number" ? Math.max(max, p.sortOrder) : max),
+        -1,
+      );
+      sanitized.sortOrder = maxOrder + 1;
+    }
+  }
   const docRef = doc(db, "products", sanitized.id);
   const payload = cleanFirestorePayload({
     ...sanitized,
@@ -259,10 +273,40 @@ export async function saveAdminProductToFirestore(product: AdminProductItem): Pr
 }
 
 /**
+ * Persiste a ordem manual da vitrine (arrastar no admin).
+ * Recebe os ids na ordem desejada e grava sortOrder 0..n em lote.
+ */
+export async function saveProductDisplayOrder(orderedIds: string[]): Promise<void> {
+  const batch = writeBatch(db);
+  const now = new Date().toISOString();
+  orderedIds.forEach((id, index) => {
+    batch.set(doc(db, "products", id), { sortOrder: index, updatedAt: now }, { merge: true });
+  });
+  await batch.commit();
+
+  // Reordena o cache na mesma sequência para resposta imediata
+  const current = getCachedAdminProducts();
+  const byId = new Map(current.map((p) => [p.id, p]));
+  const reordered: AdminProductItem[] = [];
+  orderedIds.forEach((id, index) => {
+    const item = byId.get(id);
+    if (item) {
+      reordered.push({ ...item, sortOrder: index });
+      byId.delete(id);
+    }
+  });
+  // Itens fora da lista (ex: criados durante a edição) vão para o fim
+  byId.forEach((item) => reordered.push(item));
+  cacheAdminProducts(reordered);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("viva_admin_products_updated"));
+  }
+}
+
+/**
  * Exclui um produto do Firestore
  */
-export async function deleteAdminProductFromFirestore(productId: string): Promise<void> {
-  const docRef = doc(db, "products", productId);
+export async function deleteAdminProductFromFirestore(productId: string): Promise<void> {  const docRef = doc(db, "products", productId);
   await deleteDoc(docRef);
 
   // Update cache

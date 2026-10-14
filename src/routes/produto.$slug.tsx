@@ -357,8 +357,11 @@ function ProductPage() {
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            ou {product.installments}x de {formatPrice(product.price / product.installments)} sem
-            juros no cartão
+            em até {product.installments}x de {formatPrice(product.price / product.installments)}{" "}
+            no cartão via Mercado Pago
+          </p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+            Parcelas com juros da operadora pagos pelo cliente, conforme o cartão no checkout.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
