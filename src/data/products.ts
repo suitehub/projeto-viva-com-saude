@@ -14,6 +14,8 @@ export type Product = {
   reviews: number;
   shortDescription: string;
   description: string[];
+  /** Descrição em HTML (negrito, itálico, tamanho...) já saneada. */
+  descriptionHtml?: string;
   benefits?: string[];
   composition?: string[];
   usage?: string[];

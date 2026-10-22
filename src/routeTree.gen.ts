@@ -10,11 +10,59 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as ContaRouteImport } from './routes/conta'
+import { Route as PrivacidadeRouteImport } from './routes/privacidade'
+import { Route as ProdutosRouteImport } from './routes/produtos'
+import { Route as PedidoErroRouteImport } from './routes/pedido.erro'
+import { Route as PedidoPendenteRouteImport } from './routes/pedido.pendente'
+import { Route as PedidoSucessoRouteImport } from './routes/pedido.sucesso'
 import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContaRoute = ContaRouteImport.update({
+  id: '/conta',
+  path: '/conta',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacidadeRoute = PrivacidadeRouteImport.update({
+  id: '/privacidade',
+  path: '/privacidade',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProdutosRoute = ProdutosRouteImport.update({
+  id: '/produtos',
+  path: '/produtos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PedidoErroRoute = PedidoErroRouteImport.update({
+  id: '/pedido/erro',
+  path: '/pedido/erro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PedidoPendenteRoute = PedidoPendenteRouteImport.update({
+  id: '/pedido/pendente',
+  path: '/pedido/pendente',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PedidoSucessoRoute = PedidoSucessoRouteImport.update({
+  id: '/pedido/sucesso',
+  path: '/pedido/sucesso',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProdutoSlugRoute = ProdutoSlugRouteImport.update({
@@ -25,27 +73,90 @@ const ProdutoSlugRoute = ProdutoSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/checkout': typeof CheckoutRoute
+  '/conta': typeof ContaRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/produtos': typeof ProdutosRoute
+  '/pedido/erro': typeof PedidoErroRoute
+  '/pedido/pendente': typeof PedidoPendenteRoute
+  '/pedido/sucesso': typeof PedidoSucessoRoute
   '/produto/$slug': typeof ProdutoSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/checkout': typeof CheckoutRoute
+  '/conta': typeof ContaRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/produtos': typeof ProdutosRoute
+  '/pedido/erro': typeof PedidoErroRoute
+  '/pedido/pendente': typeof PedidoPendenteRoute
+  '/pedido/sucesso': typeof PedidoSucessoRoute
   '/produto/$slug': typeof ProdutoSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/checkout': typeof CheckoutRoute
+  '/conta': typeof ContaRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/produtos': typeof ProdutosRoute
+  '/pedido/erro': typeof PedidoErroRoute
+  '/pedido/pendente': typeof PedidoPendenteRoute
+  '/pedido/sucesso': typeof PedidoSucessoRoute
   '/produto/$slug': typeof ProdutoSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/produto/$slug'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/checkout'
+    | '/conta'
+    | '/privacidade'
+    | '/produtos'
+    | '/pedido/erro'
+    | '/pedido/pendente'
+    | '/pedido/sucesso'
+    | '/produto/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/produto/$slug'
-  id: '__root__' | '/' | '/produto/$slug'
+  to:
+    | '/'
+    | '/admin'
+    | '/checkout'
+    | '/conta'
+    | '/privacidade'
+    | '/produtos'
+    | '/pedido/erro'
+    | '/pedido/pendente'
+    | '/pedido/sucesso'
+    | '/produto/$slug'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/checkout'
+    | '/conta'
+    | '/privacidade'
+    | '/produtos'
+    | '/pedido/erro'
+    | '/pedido/pendente'
+    | '/pedido/sucesso'
+    | '/produto/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  CheckoutRoute: typeof CheckoutRoute
+  ContaRoute: typeof ContaRoute
+  PrivacidadeRoute: typeof PrivacidadeRoute
+  ProdutosRoute: typeof ProdutosRoute
+  PedidoErroRoute: typeof PedidoErroRoute
+  PedidoPendenteRoute: typeof PedidoPendenteRoute
+  PedidoSucessoRoute: typeof PedidoSucessoRoute
   ProdutoSlugRoute: typeof ProdutoSlugRoute
 }
 
@@ -56,6 +167,62 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conta': {
+      id: '/conta'
+      path: '/conta'
+      fullPath: '/conta'
+      preLoaderRoute: typeof ContaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacidade': {
+      id: '/privacidade'
+      path: '/privacidade'
+      fullPath: '/privacidade'
+      preLoaderRoute: typeof PrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/produtos': {
+      id: '/produtos'
+      path: '/produtos'
+      fullPath: '/produtos'
+      preLoaderRoute: typeof ProdutosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pedido/erro': {
+      id: '/pedido/erro'
+      path: '/pedido/erro'
+      fullPath: '/pedido/erro'
+      preLoaderRoute: typeof PedidoErroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pedido/pendente': {
+      id: '/pedido/pendente'
+      path: '/pedido/pendente'
+      fullPath: '/pedido/pendente'
+      preLoaderRoute: typeof PedidoPendenteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pedido/sucesso': {
+      id: '/pedido/sucesso'
+      path: '/pedido/sucesso'
+      fullPath: '/pedido/sucesso'
+      preLoaderRoute: typeof PedidoSucessoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/produto/$slug': {
@@ -70,6 +237,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  CheckoutRoute: CheckoutRoute,
+  ContaRoute: ContaRoute,
+  PrivacidadeRoute: PrivacidadeRoute,
+  ProdutosRoute: ProdutosRoute,
+  PedidoErroRoute: PedidoErroRoute,
+  PedidoPendenteRoute: PedidoPendenteRoute,
+  PedidoSucessoRoute: PedidoSucessoRoute,
   ProdutoSlugRoute: ProdutoSlugRoute,
 }
 export const routeTree = rootRouteImport

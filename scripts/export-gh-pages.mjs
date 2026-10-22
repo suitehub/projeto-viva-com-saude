@@ -140,6 +140,22 @@ const slugifyExport = (text) =>
     .replace(/[\s_-]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
+// Descrição do produto pode vir em HTML (texto rico): as metas OG precisam
+// de texto puro, senão o WhatsApp mostra as tags.
+const stripHtmlExport = (html) =>
+  String(html ?? "")
+    .replace(/<\s*br\s*\/?>/gi, " ")
+    .replace(/<\/\s*(p|div|li|h[1-6])\s*>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+
 async function fetchStoreProductsForPrerender() {
   try {
     const cfg = JSON.parse(
@@ -175,10 +191,7 @@ async function fetchStoreProductsForPrerender() {
       const imgValues = f.images?.arrayValue?.values || [];
       const imageUrl =
         imgValues.map((v) => v.stringValue).find(Boolean) || f.imageUrl?.stringValue || "";
-      const firstPara = String(f.description?.stringValue || "")
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean)[0];
+      const firstPara = stripHtmlExport(f.description?.stringValue || "").slice(0, 160);
       const short = (firstPara || f.seoDescription?.stringValue || name).slice(0, 160);
       list.push({ id, slug, name, short, imageUrl });
     }

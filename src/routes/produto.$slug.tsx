@@ -472,7 +472,12 @@ function ProductPage() {
               <h2 className="font-display text-2xl sm:text-3xl text-foreground">
                 Descrição do produto
               </h2>
-              {product.description && product.description.length > 0 ? (
+              {product.descriptionHtml ? (
+                <div
+                  className="viva-rich-text mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground"
+                  dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
+                />
+              ) : product.description && product.description.length > 0 ? (
                 product.description.map((paragraph, idx) => (
                   <p
                     key={idx}

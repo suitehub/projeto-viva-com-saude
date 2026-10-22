@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { AdminProductItem, PRESET_STORE_CATEGORIES, MAX_FEATURED_PRODUCTS, ensureFeaturedSlot } from "@/data/admin-products-data";
 import { slugify } from "@/data/all-store-products";
+import { RichTextEditor } from "@/components/admin/rich-text-editor";
 import { uploadProductImages } from "@/lib/product-images";
 import productsImage from "@/assets/viva-products.jpg";
 
@@ -495,29 +496,19 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
             </div>
 
             <div>
-              <div className="mb-1.5">
+              <div className="mb-1.5 flex items-center justify-between gap-2">
                 <label className="text-xs font-semibold text-gray-700">Descrição</label>
+                <span className="text-[11px] text-gray-500">
+                  Negrito, itálico, tamanho, cor e listas
+                </span>
               </div>
 
-              {/* Rich text editor mock toolbar */}
-              <div className="rounded-lg border border-gray-300 overflow-hidden">
-                <div className="flex flex-wrap items-center gap-1 border-b border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600">
-                  <span className="font-semibold text-gray-700 mr-2">Parágrafo</span>
-                  <div className="h-4 w-px bg-gray-300 mx-1" />
-                  <span className="cursor-pointer px-1 font-bold hover:text-black">B</span>
-                  <span className="cursor-pointer px-1 italic hover:text-black">I</span>
-                  <span className="cursor-pointer px-1 underline hover:text-black">U</span>
-                  <div className="h-4 w-px bg-gray-300 mx-1" />
-                  <span className="cursor-pointer px-1 hover:text-black">• Lista</span>
-                  <span className="cursor-pointer px-1 hover:text-black">1. Lista</span>
-                </div>
-                <textarea
-                  rows={5}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full p-3.5 text-sm text-gray-800 focus:outline-hidden resize-y leading-relaxed"
-                />
-              </div>
+              <RichTextEditor
+                value={formData.description}
+                onChange={(html) =>
+                  setFormData((prev) => ({ ...prev, description: html }))
+                }
+              />
             </div>
           </div>
         </section>

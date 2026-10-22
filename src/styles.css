@@ -265,5 +265,113 @@
   *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
+}
+
+/*
+ * Descrição do produto com texto rico (HTML já saneado no admin).
+ * CSS próprio porque o conteúdo vem via dangerouslySetInnerHTML
+ * e por isso não passa pelas classes do Tailwind.
+ */
+.viva-rich-text > *:first-child {
+  margin-top: 0;
+}
+
+.viva-rich-text p {
+  margin-top: 1rem;
+  line-height: 1.75;
+}
+
+.viva-rich-text h2 {
+  margin-top: 1.5rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.viva-rich-text h3 {
+  margin-top: 1.25rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.viva-rich-text h4 {
+  margin-top: 1.1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.viva-rich-text ul {
+  margin-top: 0.75rem;
+  padding-left: 1.35rem;
+  list-style-type: disc;
+}
+
+.viva-rich-text ol {
+  margin-top: 0.75rem;
+  padding-left: 1.35rem;
+  list-style-type: decimal;
+}
+
+.viva-rich-text li {
+  margin-top: 0.35rem;
+  line-height: 1.7;
+}
+
+.viva-rich-text a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.viva-rich-text blockquote {
+  margin-top: 1rem;
+  border-left: 3px solid var(--primary);
+  padding-left: 0.9rem;
+  font-style: italic;
+}
+
+.viva-rich-text strong {
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.viva-rich-text hr {
+  margin-top: 1.25rem;
+  border-color: var(--border);
+}
+
+.viva-rich-text mark {
+  border-radius: 0.2rem;
+  padding: 0 0.15rem;
+}
+
+/* Editor de texto rico do painel admin */
+.viva-rte__content[data-empty="true"]::before {
+  content: attr(data-placeholder);
+  color: color-mix(in oklab, var(--muted-foreground) 75%, transparent);
+}
+
+.viva-rte__content ul {
+  padding-left: 1.35rem;
+  list-style-type: disc;
+}
+
+.viva-rte__content ol {
+  padding-left: 1.35rem;
+  list-style-type: decimal;
+}
+
+.viva-rte__content h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.viva-rte__content h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
 }

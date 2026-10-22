@@ -8,6 +8,12 @@ import {
   cacheAdminProducts,
 } from "./admin-products-data";
 import { Product, products as initialStaticProducts } from "./products";
+import {
+  excerptFromDescription,
+  hasHtmlTags,
+  plainParagraphsFromHtml,
+  sanitizeRichText,
+} from "@/lib/rich-text";
 
 const bgPositions = ["0%", "20%", "40%", "60%", "80%", "100%"];
 
@@ -72,13 +78,16 @@ export function convertAdminProductToStoreProduct(item: AdminProductItem, index:
     : [];
   const firstCategory = categoriesList[0] || "Produtos";
 
-  // Description paragraphs
-  const descParagraphs = item.description
-    ? item.description
+  // Descrição: pode vir como HTML (editor de texto rico) ou texto simples
+  const rawDescription = item.description || "";
+  const descriptionIsHtml = hasHtmlTags(rawDescription);
+  const descriptionHtml = descriptionIsHtml ? sanitizeRichText(rawDescription) : "";
+  const descParagraphs = descriptionIsHtml
+    ? plainParagraphsFromHtml(rawDescription)
+    : rawDescription
         .split("\n")
         .map((p) => p.trim())
-        .filter(Boolean)
-    : [];
+        .filter(Boolean);
 
   // ONLY extract benefits if explicitly provided by the admin!
   const benefitsList = item.benefits
@@ -131,9 +140,13 @@ export function convertAdminProductToStoreProduct(item: AdminProductItem, index:
         : 1,
     rating: 5.0,
     reviews: 0,
-    shortDescription: descParagraphs[0]?.slice(0, 160) || item.seoDescription || item.name,
+    shortDescription:
+      excerptFromDescription(rawDescription, 160) ||
+      item.seoDescription ||
+      item.name,
     description:
-      descParagraphs.length > 0 ? descParagraphs : [item.description || ""].filter(Boolean),
+      descParagraphs.length > 0 ? descParagraphs : [rawDescription].filter(Boolean),
+    ...(descriptionHtml ? { descriptionHtml } : {}),
     benefits: benefitsList && benefitsList.length > 0 ? benefitsList : undefined,
     composition: compositionList && compositionList.length > 0 ? compositionList : undefined,
     usage: usageList && usageList.length > 0 ? usageList : undefined,
