@@ -123,11 +123,12 @@ export function cacheAdminProducts(products: AdminProductItem[]): void {
  * com apenas a URL https salva no Firestore (limite de ~1MB por documento).
  */
 function sanitizeProductForFirestore(product: AdminProductItem): AdminProductItem {
-  const cleanImages = (product.images || []).filter(
-    (src) => typeof src === "string" && !src.startsWith("data:"),
-  );
-  const cleanImageUrl =
-    product.imageUrl && !product.imageUrl.startsWith("data:") ? product.imageUrl : "";
+  // blob: é preview local do navegador e data: é base64 — nenhum dos dois
+  // funciona fora da aba que fez o upload, então nunca vão para o banco.
+  const isValidImageSrc = (src: unknown): src is string =>
+    typeof src === "string" && !src.startsWith("data:") && !src.startsWith("blob:");
+  const cleanImages = (product.images || []).filter(isValidImageSrc);
+  const cleanImageUrl = product.imageUrl && isValidImageSrc(product.imageUrl) ? product.imageUrl : "";
   return {
     ...product,
     images: cleanImages,

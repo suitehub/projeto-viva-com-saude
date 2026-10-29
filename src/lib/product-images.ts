@@ -1,5 +1,18 @@
-const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME as string | undefined;
-const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET as string | undefined;
+/**
+ * Conta do Cloudinary que hospeda as fotos dos produtos.
+ *
+ * O nome da conta e o preset são públicos por definição (preset "unsigned":
+ * eles vão no JavaScript que o navegador baixa). Por isso ficam também como
+ * valor padrão aqui: se o build rodar sem o .env (ex: GitHub Actions), o
+ * upload continua funcionando em vez de salvar o produto sem as fotos.
+ */
+const DEFAULT_CLOUD_NAME = "ovctcmxf";
+const DEFAULT_UPLOAD_PRESET = "projetovivacomsaude";
+
+const CLOUD_NAME =
+  (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME as string | undefined) || DEFAULT_CLOUD_NAME;
+const UPLOAD_PRESET =
+  (import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET as string | undefined) || DEFAULT_UPLOAD_PRESET;
 
 const MAX_DIMENSION_PX = 1280;
 const JPEG_QUALITY = 0.82;

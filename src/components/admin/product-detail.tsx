@@ -238,12 +238,14 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
       let finalImages = ordered.filter((s) => !s.startsWith("blob:") && !s.startsWith("data:"));
       if (toUpload.length > 0) {
         let urlByPreview: Record<string, string> = {};
+        let failedPreviews = new Set<string>();
         try {
           const result = await uploadProductImages(
             toUpload.map((t) => ({ key: t.preview, file: t.file })),
             productId,
           );
           urlByPreview = result.urlByKey;
+          failedPreviews = new Set(result.failedKeys);
           if (result.failedKeys.length > 0) {
             const failedNames = toUpload
               .filter((t) => result.failedKeys.includes(t.preview))
@@ -256,18 +258,26 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
           }
         } catch (uploadErr) {
           console.error("Erro ao enviar fotos ao Cloudinary:", uploadErr);
+          failedPreviews = new Set(toUpload.map((t) => t.preview));
           toast.error(
             "Não foi possível enviar as fotos. " +
               "Confira VITE_CLOUDINARY_CLOUD_NAME e VITE_CLOUDINARY_UPLOAD_PRESET no .env. " +
               "O produto será salvo sem as fotos novas.",
           );
         }
+        // Troca os previews locais pelas URLs do Cloudinary. As fotos que
+        // falharam continuam no formulário como preview, para o usuário poder
+        // tentar salvar de novo sem escolher os arquivos outra vez.
         finalImages = ordered
           .map((s) => urlByPreview[s] || s)
-          .filter((s) => !s.startsWith("blob:") && !s.startsWith("data:"));
-        // Libera previews locais e limpa pendências enviadas
+          .filter((s) => !s.startsWith("data:"))
+          .filter((s) => !s.startsWith("blob:") || failedPreviews.has(s));
+        // Libera os previews que já subiram e guarda só os que falharam
+        const remainingPending: Record<string, File> = {};
         for (const t of toUpload) {
-          if (t.preview.startsWith("blob:")) {
+          if (failedPreviews.has(t.preview)) {
+            if (t.preview.startsWith("blob:")) remainingPending[t.preview] = t.file;
+          } else if (t.preview.startsWith("blob:")) {
             try {
               URL.revokeObjectURL(t.preview);
             } catch {
@@ -275,7 +285,7 @@ export function ProductDetail({ product, onBack, onSave, onDelete }: ProductDeta
             }
           }
         }
-        setPendingFiles({});
+        setPendingFiles(remainingPending);
       }
 
       const wasFeatured = product.featured === true;

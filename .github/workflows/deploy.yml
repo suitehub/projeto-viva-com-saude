@@ -41,6 +41,11 @@ jobs:
           # então a base PRECISA ser "/". O valor antigo com /nome-do-repo/ quebrava
           # os assets (/nome-do-repo/assets/...) e dava tela branca no domínio.
           BASE_URL: /
+          # Cloudinary (fotos dos produtos). São valores públicos (preset unsigned),
+          # então o upload funciona mesmo sem secret cadastrado — o código tem o
+          # padrão. Cadastre os secrets abaixo só se trocar de conta/preset.
+          VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
+          VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
 
       - name: Publicar na branch gh-pages
         uses: peaceiris/actions-gh-pages@v4
