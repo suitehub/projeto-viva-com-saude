@@ -295,9 +295,10 @@ if (!fs.existsSync(path.join(distDir, "index.html"))) {
   const mainCss = assetFiles.find((f) => f.startsWith("styles-") && f.endsWith(".css"));
 
   const fallbackHtml = `<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" translate="no" class="notranslate">
   <head>
     <meta charset="utf-8" />
+    <meta name="google" content="notranslate" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Projeto Viva com Saúde | Produtos Naturais</title>
     ${mainCss ? `<link rel="stylesheet" href="${targetBaseUrl}assets/${mainCss}" />` : ""}
@@ -313,9 +314,10 @@ if (!fs.existsSync(path.join(distDir, "index.html"))) {
 
 // 6. Cria o 404.html inteligente para o GitHub Pages (redirecionamento SPA)
 const spa404Html = `<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" translate="no" class="notranslate">
   <head>
     <meta charset="utf-8">
+    <meta name="google" content="notranslate">
     <title>Projeto Viva com Saúde</title>
     <script>
       // Single Page Apps for GitHub Pages
