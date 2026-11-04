@@ -43,5 +43,3 @@ export function applyTranslateSafety(): void {
     return originalInsertBefore.call(this, newNode, referenceNode) as T;
   };
 }
-
-applyTranslateSafety();

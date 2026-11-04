@@ -13,7 +13,10 @@ import appCss from "../styles.css?url";
 import logoImage from "../assets/logoprojeto.png";
 import faviconImage from "../assets/logo.png";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import "../lib/translate-safety";
+import { applyTranslateSafety } from "../lib/translate-safety";
+
+// Roda uma única vez, antes de qualquer renderização.
+applyTranslateSafety();
 
 function NotFoundComponent() {
   return (
