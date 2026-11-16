@@ -743,7 +743,11 @@ function CheckoutPage() {
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Frete ({freight.label})</dt>
                   <dd className="font-semibold">
-                    {effectiveFreightPrice === 0 ? (
+                    {!freight.id ? (
+                      <span className="text-muted-foreground">
+                        {quoting ? "Calculando..." : "Aguardando CEP"}
+                      </span>
+                    ) : effectiveFreightPrice === 0 ? (
                       <span>
                         Grátis
                         {appliedCoupon?.freeShipping && (
