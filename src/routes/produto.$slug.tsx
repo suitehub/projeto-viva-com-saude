@@ -35,6 +35,7 @@ import { useCart } from "@/data/cart";
 import { useStoreSettings } from "@/hooks/use-store-settings";
 import { ProductFavoriteButton } from "@/components/products/product-favorite-button";
 import { ProductShare } from "@/components/products/product-share-button";
+import { ShippingEstimator } from "@/components/products/shipping-estimator";
 import {
   ProductReviewsSection,
 } from "@/components/products/product-reviews-section";
@@ -418,6 +419,19 @@ function ProductPage() {
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
+
+          <ShippingEstimator
+            subtotal={product.price * quantity}
+            items={[
+              {
+                qty: quantity,
+                weightKg: product.weightKg ?? 0,
+                lengthCm: product.lengthCm ?? 0,
+                widthCm: product.widthCm ?? 0,
+                heightCm: product.heightCm ?? 0,
+              },
+            ]}
+          />
 
           <div className="mt-6 grid gap-4 border-t border-border pt-6 sm:grid-cols-3">
             {[

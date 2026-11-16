@@ -29,6 +29,7 @@ import {
   useCart,
 } from "@/data/cart";
 import { createMercadoPagoPreference, BACKEND_URL } from "@/lib/backend";
+import { getSavedCep, saveCep } from "@/lib/shipping-quote";
 import { toast } from "sonner";
 import {
   fetchCouponByCode,
@@ -79,7 +80,7 @@ function CheckoutPage() {
   const [email, setEmail] = useState(user?.email || "");
   const [cpf, setCpf] = useState("");
   const [phone, setPhone] = useState(user?.phone || "");
-  const [cep, setCep] = useState("");
+  const [cep, setCep] = useState(() => formatCep(getSavedCep()));
   const [address, setAddress] = useState("");
   const [number, setNumber] = useState("");
   const [complement, setComplement] = useState("");
@@ -165,6 +166,7 @@ function CheckoutPage() {
       });
       setFreightChoices(mapped);
       setFreightId((prev) => (mapped.some((m) => m.id === prev) ? prev : mapped[0].id));
+      saveCep(cepDigits);
     } catch (err) {
       setQuoteError(err instanceof Error ? err.message : "Não foi possível calcular o frete.");
     } finally {
