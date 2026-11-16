@@ -30,6 +30,7 @@ import {
 } from "@/data/cart";
 import { createMercadoPagoPreference, BACKEND_URL } from "@/lib/backend";
 import { getSavedCep, saveCep } from "@/lib/shipping-quote";
+import { fetchAddressByCep } from "@/lib/cep";
 import { toast } from "sonner";
 import {
   fetchCouponByCode,
@@ -116,6 +117,22 @@ function CheckoutPage() {
   const cepDigits = cep.replace(/\D/g, "");
   const itemsSignature = items.map(({ product, qty }) => `${product.id}:${qty}`).join("|");
   void itemsSignature;
+
+  // Preenche rua, bairro, cidade e estado a partir do CEP.
+  useEffect(() => {
+    if (cepDigits.length !== 8) return;
+    let active = true;
+    void fetchAddressByCep(cepDigits).then((found) => {
+      if (!active || !found) return;
+      setAddress((prev) => found.street || prev);
+      setNeighborhood((prev) => found.neighborhood || prev);
+      setCity((prev) => found.city || prev);
+      setState((prev) => found.state || prev);
+    });
+    return () => {
+      active = false;
+    };
+  }, [cepDigits]);
 
   const handleQuoteFrete = async () => {
     if (cepDigits.length !== 8) {
